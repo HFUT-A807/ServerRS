@@ -1,0 +1,47 @@
+/Server
+/A.md
+
+database/.idea
+database/mysql8
+database/qdrant
+data
+_doc_render
+*.zip
+*.7z
+
+# Local secrets — never commit. Use config.example.toml / .env.example as templates.
+config.toml
+.env
+.env.*
+!.env.example
+
+**/node_modules
+**/dist
+**/build
+**/.DS_Store
+**/.idea
+
+
+# Logs
+logs
+*.log
+
+.venv
+__pycache__
+
+
+docs/superpowers
+docs/design
+
+.claude
+
+
+.codex
+
+.worktrees/
+.zcode/
+
+# Local acceptance evidence and fallback Cargo output.
+/target/
+/deploy/offline/bundle/
+/deploy/offline/output/

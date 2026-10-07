@@ -1,0 +1,69 @@
+name: serverrs-offline
+
+services:
+  mysql:
+    image: mysql:8
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:?Run Start-Offline.ps1 first}
+      MYSQL_DATABASE: digital_companion
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  qdrant:
+    image: qdrant/qdrant:v1.18
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "127.0.0.1:6333:6333"
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ./models/ollama:/root/.ollama/models
+    ports:
+      - "127.0.0.1:11434:11434"
+
+  backend:
+    image: serverrs/backend:offline
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      ollama:
+        condition: service_started
+    environment:
+      CONFIG_PATH: /app/config.toml
+      DATABASE_URL: mysql://root:${MYSQL_PASSWORD:?Run Start-Offline.ps1 first}@mysql:3306/digital_companion
+      JWT_SECRET: ${JWT_SECRET:?Run Start-Offline.ps1 first}
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+      - uploads_data:/app/uploads
+      - logs_data:/app/logs
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  admin:
+    image: serverrs/admin:offline
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  mysql_data:
+  qdrant_data:
+  uploads_data:
+  logs_data:
+

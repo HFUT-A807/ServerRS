@@ -1,0 +1,26 @@
+FROM rust:1.98-bookworm AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+COPY Cargo.toml Cargo.lock ./
+COPY apps ./apps
+COPY crates ./crates
+RUN cargo build --locked --release -p digital-human-server --bin digital-human-server
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates libssl3 && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 10001 serverrs \
+    && useradd --system --uid 10001 --gid serverrs --home-dir /app serverrs \
+    && mkdir -p /app/uploads /app/logs \
+    && chown -R serverrs:serverrs /app
+
+WORKDIR /app
+COPY --from=builder /src/target/release/digital-human-server /usr/local/bin/digital-human-server
+USER serverrs
+EXPOSE 8080
+ENV CONFIG_PATH=/app/config.toml
+CMD ["digital-human-server"]
+
