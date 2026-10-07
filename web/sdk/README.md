@@ -3,13 +3,17 @@
 ServerRS 的通用 TypeScript SDK，可用于浏览器、SSR 和 Node.js。它不依赖 Vue
 或其他 UI 框架，同时覆盖公开接口、普通用户接口和管理员接口。
 
+前端交付文档：[SDK 介绍与配置](../../docs/frontend-sdk-guide.md)、
+[健康促进接入手册（地址、参数、响应、轮询与状态处理）](../../docs/frontend-wellbeing-guide.md)。
+可编译的接入控制器见 [examples/wellbeing.ts](examples/wellbeing.ts)。
+
 ## 在其他前端项目中安装
 
 先在 ServerRS 仓库构建 SDK，再从普通用户前端项目安装本地包：
 
 ```powershell
-pnpm --dir D:\WorkBench\ServerRS\web\sdk build
-pnpm add D:\WorkBench\ServerRS\web\sdk
+pnpm --dir D:\WorkSpace\Temp\ServerRS\web\sdk build
+pnpm add D:\WorkSpace\Temp\ServerRS\web\sdk
 ```
 
 发布到私有 npm registry 后，也可以直接使用 `pnpm add @serverrs/sdk`。
@@ -21,7 +25,7 @@ import { createLocalStorageTokenStore, createUserClient, createAdminClient } fro
 
 // 普通用户客户端
 const client = createUserClient({
-  baseUrl: 'http://127.0.0.1:3000',
+  baseUrl: 'http://127.0.0.1:8080',
   tokenStore: createLocalStorageTokenStore(),
 })
 
@@ -107,6 +111,7 @@ SDK 按业务域提供以下客户端：
 - `chat` — 对话、消息发送、记忆管理、画像
 - `psychology` — 心理知识库阅读与收藏
 - `depression` — 抑郁量表与评估记录
+- `wellbeing` — 健康促进建议查询、完成/忽略/稍后提醒；`createWellbeingPoller` 默认每 20 秒轮询
 - `diaries` — 日记 CRUD
 - `community` — 社区帖子、评论、点赞
 - `music` — 音乐曲库浏览与播放

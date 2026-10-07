@@ -78,18 +78,18 @@ VALUES
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Conversations (2 per user = 10)
 -- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO conversations (id, user_id, title, is_title_generated, last_message_at, message_count, created_at)
+INSERT INTO conversations (id, user_id, title, last_message_at, message_count, created_at)
 VALUES
-(1,  1, '夜间情绪疏导对话',      1, '2026-06-11 21:55:05', 4, '2026-06-11 21:50:30'),
-(2,  1, '晨间目标检视',          0, '2026-06-11 07:14:05', 4, '2026-06-11 07:10:00'),
-(3,  2, '焦虑应对练习',          1, '2026-06-11 15:30:00', 3, '2026-06-11 15:20:00'),
-(4,  2, '海边散步随聊',          1, '2026-06-10 18:40:00', 5, '2026-06-10 18:30:00'),
-(5,  3, '慢跑呼吸节奏探讨',      1, '2026-06-11 06:45:00', 3, '2026-06-11 06:30:00'),
-(6,  3, '手工疗愈心情分享',      0, '2026-06-10 14:30:00', 4, '2026-06-10 14:10:00'),
-(7,  4, '森林漫步与情绪整理',    1, '2026-06-11 08:10:00', 3, '2026-06-11 07:55:00'),
-(8,  4, '写给自己的信',          1, '2026-06-10 22:33:00', 5, '2026-06-10 22:05:00'),
-(9,  5, '观星与睡前放松',        1, '2026-06-11 23:20:00', 4, '2026-06-11 23:00:00'),
-(10, 5, '夜跑音乐推荐',          1, '2026-06-10 20:55:00', 3, '2026-06-10 20:40:00');
+(1,  1, '夜间情绪疏导对话', '2026-06-11 21:55:05', 4, '2026-06-11 21:50:30'),
+(2,  1, '晨间目标检视', '2026-06-11 07:14:05', 4, '2026-06-11 07:10:00'),
+(3,  2, '焦虑应对练习', '2026-06-11 15:30:00', 3, '2026-06-11 15:20:00'),
+(4,  2, '海边散步随聊', '2026-06-10 18:40:00', 5, '2026-06-10 18:30:00'),
+(5,  3, '慢跑呼吸节奏探讨', '2026-06-11 06:45:00', 3, '2026-06-11 06:30:00'),
+(6,  3, '手工疗愈心情分享', '2026-06-10 14:30:00', 4, '2026-06-10 14:10:00'),
+(7,  4, '森林漫步与情绪整理', '2026-06-11 08:10:00', 3, '2026-06-11 07:55:00'),
+(8,  4, '写给自己的信', '2026-06-10 22:33:00', 5, '2026-06-10 22:05:00'),
+(9,  5, '观星与睡前放松', '2026-06-11 23:20:00', 4, '2026-06-11 23:00:00'),
+(10, 5, '夜跑音乐推荐', '2026-06-10 20:55:00', 3, '2026-06-10 20:40:00');
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Conversation Messages (3–5 per conversation = 38 rows)
@@ -317,32 +317,6 @@ VALUES
 (5, 3, 1, '2026-06-06',
  '[{"qId":1,"score":0},{"qId":2,"score":0},{"qId":3,"score":0},{"qId":4,"score":1},{"qId":5,"score":0},{"qId":6,"score":0},{"qId":7,"score":1},{"qId":8,"score":0},{"qId":9,"score":0}]',
  2, '几乎无抑郁症状，注意力略有困扰。', '2026-06-06 11:00:00', '2026-06-06 11:00:00');
-
--- ─────────────────────────────────────────────────────────────────────────────
--- Risk Detection Results (sample from conversations)
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO risk_detection_results (id, user_id, message_id, conversation_id, risk_level, polarity, intent, target, confidence, evidence, reason, raw_payload, model_name, detector_version, is_processed, process_notes, created_at)
-VALUES
-(1, 1, 1, 1, 'MEDIUM', 'NEGATIVE', 'VENTING', 'SELF', 0.72,
- '["晚上一个人静下来就又想起白天的事，胸口很闷"]',
- '用户表达了明显的躯体化情绪（胸闷）和孤独感，但无即时危险。',
- '{"risk":"MEDIUM","polarity":"NEGATIVE","intent":"VENTING"}',
- 'qwen2.5:14b', '1.0.0', 0, NULL, '2026-06-11 21:51:05'),
-(2, 2, 9, 3, 'LOW', 'NEGATIVE', 'HELP_SEEKING', 'SELF', 0.55,
- '["下午开会前手心又开始出汗了"]',
- '焦虑躯体化症状描述，属于求助类话语，风险较低。',
- '{"risk":"LOW","polarity":"NEGATIVE","intent":"HELP_SEEKING"}',
- 'qwen2.5:14b', '1.0.0', 0, NULL, '2026-06-11 15:21:05'),
-(3, 4, 29, 8, 'MEDIUM', 'NEGATIVE', 'NARRATIVE', 'SELF', 0.68,
- '["谢谢你撑过了那个冬天","写完眼泪就下来了"]',
- '涉及过往困难时期的情绪释放，泪流是健康的表达方式，但需关注。',
- '{"risk":"MEDIUM","polarity":"MIXED","intent":"NARRATIVE"}',
- 'qwen2.5:14b', '1.0.0', 0, NULL, '2026-06-10 22:28:05'),
-(4, 5, 32, 9, 'LOW', 'NEGATIVE', 'INFO_QUERY', 'SELF', 0.42,
- '["还是有点失眠"]',
- '失眠问题表述，但与观星等积极活动伴随，风险较低。',
- '{"risk":"LOW","polarity":"NEUTRAL","intent":"INFO_QUERY"}',
- 'qwen2.5:14b', '1.0.0', 0, NULL, '2026-06-11 23:02:05');
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Psychology Categories (multi-level)
@@ -652,27 +626,6 @@ VALUES
 (5, 6, 'message', 15, 15, NULL, 0, 'source', 0.800, 'memory-extractor-v1', '2026-06-10 18:39:30');
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- User Memory Embeddings (for the 5 indexed memories)
--- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO user_memory_embeddings (embedding_id, memory_id, provider, model, dimension, embedding_json, created_at)
-VALUES
-(1, 1, 'ollama', 'nomic-embed-text', 768,
- '{"v":[0.023,-0.041,0.055,0.009,-0.068,0.032,-0.017,0.044,0.076,-0.005]}',
- '2026-06-11 21:52:05'),
-(2, 2, 'ollama', 'nomic-embed-text', 768,
- '{"v":[-0.017,0.062,0.039,-0.052,0.024,0.081,-0.043,0.015,0.058,-0.029]}',
- '2026-06-11 07:12:05'),
-(3, 3, 'ollama', 'nomic-embed-text', 768,
- '{"v":[0.046,0.028,-0.061,0.034,0.071,-0.016,0.053,-0.038,0.012,0.067]}',
- '2026-06-11 21:55:10'),
-(4, 5, 'ollama', 'nomic-embed-text', 768,
- '{"v":[-0.033,0.049,-0.022,0.065,0.018,0.074,-0.057,0.027,0.041,0.083]}',
- '2026-06-11 15:28:05'),
-(5, 6, 'ollama', 'nomic-embed-text', 768,
- '{"v":[0.057,-0.013,0.044,0.032,-0.047,0.069,0.021,-0.054,0.036,0.078]}',
- '2026-06-10 18:40:05');
-
--- ─────────────────────────────────────────────────────────────────────────────
 -- Conversation Summaries (1 per conversation = 10)
 -- ─────────────────────────────────────────────────────────────────────────────
 INSERT INTO conversation_summaries (summary_id, conversation_id, user_id, summary_type, content, message_start_id, message_end_id, token_count, status, created_at, updated_at, vector_id, embedding_provider, embedding_model, embedding_dimension, indexed_at)
@@ -721,27 +674,27 @@ VALUES
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Agent Events (trace for conv 1: alice夜间对话)
 -- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO agent_events (event_id, user_id, conversation_id, session_id, trace_id, turn_id, event_type, severity, tool_name, payload, created_at)
+INSERT INTO agent_events (event_id, user_id, conversation_id, trace_id, turn_id, event_type, severity, tool_name, payload, created_at)
 VALUES
-(1,  1, 1, 'sess_alice_night_001', 'trace_20260611_215100', 'turn_1', 'llm_call_start',    'info',    NULL,
+(1,  1, 1, 'trace_20260611_215100', 'turn_1', 'llm_call_start',    'info',    NULL,
  '{"model":"qwen2.5:14b","input_tokens":0,"system_prompt_truncated":false}',
  '2026-06-11 21:51:01'),
-(2,  1, 1, 'sess_alice_night_001', 'trace_20260611_215100', 'turn_1', 'risk_detection',     'info',    'risk_detector',
+(2,  1, 1, 'trace_20260611_215100', 'turn_1', 'risk_detection',     'info',    'risk_detector',
  '{"risk_level":"MEDIUM","polarity":"NEGATIVE","intent":"VENTING","confidence":0.72}',
  '2026-06-11 21:51:05'),
-(3,  1, 1, 'sess_alice_night_001', 'trace_20260611_215100', 'turn_1', 'memory_lookup',      'debug',   'memory_search',
+(3,  1, 1, 'trace_20260611_215100', 'turn_1', 'memory_lookup',      'debug',   'memory_search',
  '{"memories_found":2,"top_salience":0.9,"query":"nighttime anxiety"}',
  '2026-06-11 21:51:08'),
-(4,  1, 1, 'sess_alice_night_001', 'trace_20260611_215100', 'turn_1', 'llm_call_end',       'info',    NULL,
+(4,  1, 1, 'trace_20260611_215100', 'turn_1', 'llm_call_end',       'info',    NULL,
  '{"model":"qwen2.5:14b","output_tokens":28,"latency_ms":1200}',
  '2026-06-11 21:52:00'),
-(5,  1, 1, 'sess_alice_night_001', 'trace_20260611_215400', 'turn_2', 'llm_call_start',    'info',    NULL,
+(5,  1, 1, 'trace_20260611_215400', 'turn_2', 'llm_call_start',    'info',    NULL,
  '{"model":"qwen2.5:14b","input_tokens":120}',
  '2026-06-11 21:54:01'),
-(6,  1, 1, 'sess_alice_night_001', 'trace_20260611_215400', 'turn_2', 'memory_save',        'debug',   'memory_upsert',
+(6,  1, 1, 'trace_20260611_215400', 'turn_2', 'memory_save',        'debug',   'memory_upsert',
  '{"memory_type":"fact","key":"body_scan_effective","confidence":0.78}',
  '2026-06-11 21:55:03'),
-(7,  1, 1, 'sess_alice_night_001', 'trace_20260611_215400', 'turn_2', 'llm_call_end',       'info',    NULL,
+(7,  1, 1, 'trace_20260611_215400', 'turn_2', 'llm_call_end',       'info',    NULL,
  '{"model":"qwen2.5:14b","output_tokens":22,"latency_ms":1100}',
  '2026-06-11 21:55:05');
 

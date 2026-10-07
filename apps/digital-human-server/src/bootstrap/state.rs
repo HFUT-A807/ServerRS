@@ -22,6 +22,7 @@ use crate::app::storage::object_service::ObjectService;
 use crate::app::tts::tts_service::TtsService;
 use crate::app::user::user_service::UserService;
 use crate::app::web_ingestion::review_service::KnowledgeReviewService;
+use crate::app::wellbeing::wellbeing_service::WellbeingService;
 use crate::bootstrap::auth::AuthGraph;
 use crate::bootstrap::graph::{
     BootstrapContext, build_agent_services, build_domain_services, build_identity_services,
@@ -42,6 +43,7 @@ pub struct ServiceGraph {
     pub objects: Arc<ObjectService>,
     pub psychology: Arc<PsychologyService>,
     pub depression: Arc<DepressionService>,
+    pub wellbeing: Arc<WellbeingService>,
     pub diaries: Arc<DiaryService>,
     pub music: Arc<MusicService>,
     pub community: Arc<CommunityService>,
@@ -137,6 +139,7 @@ impl ServiceGraph {
             objects: domain.objects,
             psychology: domain.psychology,
             depression: domain.depression,
+            wellbeing: domain.wellbeing,
             diaries: domain.diaries,
             music: domain.music,
             community: domain.community,
@@ -178,6 +181,10 @@ pub fn build_state(services: &ServiceGraph) -> AppState {
         },
         depression: DepressionState {
             depression: Arc::clone(&services.depression),
+            wellbeing: Arc::clone(&services.wellbeing),
+        },
+        wellbeing: crate::api::state::WellbeingState {
+            wellbeing: Arc::clone(&services.wellbeing),
         },
         diary: DiaryState {
             diaries: Arc::clone(&services.diaries),

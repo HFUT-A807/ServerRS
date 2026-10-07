@@ -51,6 +51,7 @@ use super::handlers::signature_handler::{create_signature, verify_signature};
 use super::handlers::stats_handler::{stats_music, stats_reviews, stats_risks, stats_users};
 use super::handlers::tts_handler::get_signed_audio;
 use super::handlers::user_handler::{delete_me, get_me, get_profile, patch_me, put_profile};
+use super::handlers::wellbeing_handler::{list_recommendations, update_recommendation};
 use super::middleware::auth_middleware::{require_admin_role, require_bearer_auth};
 use super::middleware::request_logging::log_http_failures;
 
@@ -116,6 +117,15 @@ pub fn build_router_with_origins(
         .route(
             "/api/v1/depression/assessments/{assessment_id}",
             delete(delete_assessment),
+        )
+        // Health promotion suggestions, scoped to the authenticated user
+        .route(
+            "/api/v1/wellbeing/recommendations",
+            get(list_recommendations),
+        )
+        .route(
+            "/api/v1/wellbeing/recommendations/{id}",
+            patch(update_recommendation),
         )
         // Diary CRUD
         .route("/api/v1/diaries", get(list_diaries))

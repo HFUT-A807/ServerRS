@@ -20,6 +20,7 @@ use crate::app::storage::object_service::ObjectService;
 use crate::app::tts::tts_service::TtsService;
 use crate::app::user::user_service::UserService;
 use crate::app::web_ingestion::review_service::KnowledgeReviewService;
+use crate::app::wellbeing::wellbeing_service::WellbeingService;
 use crate::domain::auth::token_service::TokenServiceT;
 
 #[derive(Clone, FromRef)]
@@ -31,6 +32,7 @@ pub struct AppState {
     pub object: ObjectState,
     pub psychology: PsychologyState,
     pub depression: DepressionState,
+    pub wellbeing: WellbeingState,
     pub diary: DiaryState,
     pub music: MusicState,
     pub community: CommunityState,
@@ -78,6 +80,7 @@ pub struct PsychologyState {
 #[derive(Clone)]
 pub struct DepressionState {
     pub depression: Arc<DepressionService>,
+    pub wellbeing: Arc<WellbeingService>,
 }
 
 #[derive(Clone)]
@@ -110,4 +113,9 @@ pub struct InternalState {
     pub ingestion: Arc<IngestionService>,
     pub memory: Arc<MemoryService>,
     pub agent_runtime: Arc<AgentRuntime>,
+}
+
+#[derive(Clone)]
+pub struct WellbeingState {
+    pub wellbeing: Arc<WellbeingService>,
 }

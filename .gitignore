@@ -6,6 +6,8 @@ database/mysql8
 database/qdrant
 data
 _doc_render
+*.docx
+*.doc
 *.zip
 *.7z
 
@@ -45,3 +47,6 @@ docs/design
 /target/
 /deploy/offline/bundle/
 /deploy/offline/output/
+
+# Local database backups (contain user data).
+/database/backups/

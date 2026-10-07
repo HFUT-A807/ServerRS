@@ -3,12 +3,14 @@ use std::sync::Arc;
 use crate::app::depression::depression_service::DepressionService;
 use crate::app::diary::diary_service::DiaryService;
 use crate::app::psychology::psychology_service::PsychologyService;
+use crate::app::wellbeing::wellbeing_service::WellbeingService;
 
 use super::BootstrapContext;
 
 pub struct WellbeingServices {
     pub psychology: Arc<PsychologyService>,
     pub depression: Arc<DepressionService>,
+    pub wellbeing: Arc<WellbeingService>,
     pub diaries: Arc<DiaryService>,
 }
 
@@ -24,7 +26,9 @@ pub fn build_wellbeing_services(ctx: &BootstrapContext<'_>) -> WellbeingServices
         Some(Arc::clone(&ctx.infra.ollama_provider)),
     ));
 
+    let wellbeing = Arc::new(WellbeingService::new(Arc::clone(&ctx.repos.wellbeing_repo)));
     WellbeingServices {
+        wellbeing,
         psychology,
         depression,
         diaries,

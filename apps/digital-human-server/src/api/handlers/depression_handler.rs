@@ -10,6 +10,7 @@ use crate::api::error::ApiError as AppError;
 use crate::app::auth::auth_service::AuthenticatedUser;
 use crate::app::depression::depression_service::AssessmentDetail;
 use crate::domain::depression::DepressionScale;
+use crate::domain::wellbeing::ActivityRecommendation;
 
 // ── Request DTOs ──────────────────────────────────────────────────────────────
 
@@ -69,6 +70,7 @@ impl From<DepressionScale> for ScaleDto {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssessmentDto {
+    pub recommendations: Vec<ActivityRecommendation>,
     pub assessment_id: u64,
     pub user_id: u64,
     pub scale_id: u16,
@@ -124,6 +126,7 @@ pub async fn list_assessments(
         .map(|detail| {
             let a = detail.assessment;
             AssessmentDto {
+                recommendations: Vec::new(),
                 assessment_id: a.assessment_id,
                 user_id: a.user_id,
                 scale_id: a.scale_id,
@@ -152,6 +155,10 @@ pub async fn get_assessment(
         .await?;
     let a = detail.assessment;
     Ok(Json(AssessmentDto {
+        recommendations: state
+            .wellbeing
+            .for_assessment(auth_user.user_id, a.assessment_id)
+            .await?,
         assessment_id: a.assessment_id,
         user_id: a.user_id,
         scale_id: a.scale_id,
@@ -186,6 +193,10 @@ pub async fn create_assessment(
         )
         .await?;
     Ok(Json(AssessmentDto {
+        recommendations: state
+            .wellbeing
+            .for_assessment(auth_user.user_id, assessment.assessment_id)
+            .await?,
         assessment_id: assessment.assessment_id,
         user_id: assessment.user_id,
         scale_id: assessment.scale_id,

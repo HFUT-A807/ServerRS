@@ -29,6 +29,7 @@ use crate::domain::user::user_context_version::UserContextVersionRepoT;
 use crate::domain::user::user_profile_repo::UserProfileRepoT;
 use crate::domain::user::user_repo::UserRepoT;
 use crate::domain::vector_index::VectorIndexRepoT;
+use crate::domain::wellbeing::WellbeingRepoT;
 use crate::infra::repo::seaorm_impl::agent::{AgentEventRepo, ChatApprovalAuditRepo};
 use crate::infra::repo::seaorm_impl::agent_checkpoint::MySqlCheckpointStore;
 use crate::infra::repo::seaorm_impl::community::CommunityRepo;
@@ -49,6 +50,7 @@ use crate::infra::repo::seaorm_impl::user_context_control::UserContextControlRep
 use crate::infra::repo::seaorm_impl::user_context_version::UserContextVersionRepo;
 use crate::infra::repo::seaorm_impl::user_profile::UserProfileRepo;
 use crate::infra::repo::seaorm_impl::vector_index::VectorIndexRepo;
+use crate::infra::repo::seaorm_impl::wellbeing::WellbeingRepo;
 
 pub struct RepositorySet {
     pub user_repo: Arc<dyn UserRepoT>,
@@ -59,6 +61,7 @@ pub struct RepositorySet {
     pub risk_repo: Arc<dyn RiskRepoT>,
     pub psychology_repo: Arc<dyn PsychologyRepoT>,
     pub depression_repo: Arc<dyn DepressionRepoT>,
+    pub wellbeing_repo: Arc<dyn WellbeingRepoT>,
     pub diary_repo: Arc<dyn DiaryRepoT>,
     pub music_repo: Arc<dyn MusicRepoT>,
     pub community_repo: Arc<dyn CommunityRepoT>,
@@ -89,6 +92,7 @@ pub fn build_repositories(
         risk_repo: Arc::new(RiskRepo::new(db.clone())),
         psychology_repo: Arc::new(PsychologyRepo::new(db.clone())),
         depression_repo: Arc::new(DepressionRepo::new(db.clone())),
+        wellbeing_repo: Arc::new(WellbeingRepo::new(db.clone())),
         diary_repo: Arc::new(DiaryRepo::new(db.clone())),
         music_repo: Arc::new(MusicRepo::new(db.clone())),
         community_repo: Arc::new(CommunityRepo::new(db.clone())),

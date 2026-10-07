@@ -6,6 +6,7 @@
  */
 
 import { HttpClient, type ServerRsClientConfig, type TokenStore } from './http.js'
+import { WellbeingApi } from './wellbeing.js'
 import type {
   Article,
   AuthUser,
@@ -87,6 +88,7 @@ export class UserClient {
   readonly chat: ChatApi
   readonly psychology: PsychologyApi
   readonly depression: DepressionApi
+  readonly wellbeing: WellbeingApi
   readonly diaries: DiaryApi
   readonly community: CommunityApi
   readonly music: MusicApi
@@ -100,6 +102,7 @@ export class UserClient {
     this.chat = new ChatApi(this.http)
     this.psychology = new PsychologyApi(this.http)
     this.depression = new DepressionApi(this.http)
+    this.wellbeing = new WellbeingApi(this.http)
     this.diaries = new DiaryApi(this.http)
     this.community = new CommunityApi(this.http)
     this.music = new MusicApi(this.http)

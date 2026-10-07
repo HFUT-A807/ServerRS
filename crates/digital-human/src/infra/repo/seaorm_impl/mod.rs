@@ -21,3 +21,5 @@ pub mod user_context_control;
 pub mod user_context_version;
 pub mod user_profile;
 pub mod vector_index;
+
+pub mod wellbeing;

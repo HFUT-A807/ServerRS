@@ -47,3 +47,5 @@ pub mod web_ingestion_audit_logs;
 pub mod web_pages;
 pub mod web_source_urls;
 pub mod web_sources;
+
+pub mod wellbeing_recommendations;

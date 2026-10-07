@@ -6,6 +6,7 @@ use crate::app::diary::diary_service::DiaryService;
 use crate::app::music::music_service::MusicService;
 use crate::app::psychology::psychology_service::PsychologyService;
 use crate::app::storage::object_service::ObjectService;
+use crate::app::wellbeing::wellbeing_service::WellbeingService;
 
 use super::BootstrapContext;
 use super::content_provider::build_content_services;
@@ -16,6 +17,7 @@ pub struct DomainServices {
     pub objects: Arc<ObjectService>,
     pub psychology: Arc<PsychologyService>,
     pub depression: Arc<DepressionService>,
+    pub wellbeing: Arc<WellbeingService>,
     pub diaries: Arc<DiaryService>,
     pub music: Arc<MusicService>,
     pub community: Arc<CommunityService>,
@@ -30,6 +32,7 @@ pub fn build_domain_services(ctx: &BootstrapContext<'_>) -> DomainServices {
         objects: object.objects,
         psychology: wellbeing.psychology,
         depression: wellbeing.depression,
+        wellbeing: wellbeing.wellbeing,
         diaries: wellbeing.diaries,
         music: content.music,
         community: content.community,

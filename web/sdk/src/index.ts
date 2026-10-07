@@ -8,6 +8,7 @@ export { ServerRsClient, createServerRsClient } from './client.js'
 // 底层类型和工具
 export * from './http.js'
 export * from './types.js'
+export { WellbeingApi, createWellbeingPoller, type WellbeingPollingOptions } from './wellbeing.js'
 
 // 旧 SDK 兼容层（需显式导入）
 //   import { DiariesApi } from '@serverrs/sdk/compat'

@@ -10,6 +10,16 @@ fn router_source() -> String {
         .expect("router.rs must be readable")
 }
 
+#[test]
+fn wellbeing_routes_require_bearer_auth() {
+    let source = router_source();
+    let (protected, rest) = split_protected(&source);
+    for handler in ["get(list_recommendations)", "patch(update_recommendation)"] {
+        assert!(protected.contains(handler));
+        assert!(!rest.contains(handler));
+    }
+}
+
 /// 返回 `(protected 路由组源码段, 其余源码)`。
 fn split_protected(source: &str) -> (&str, String) {
     let start = source

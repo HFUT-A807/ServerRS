@@ -319,6 +319,8 @@ export interface DepressionScale {
 }
 
 export interface DepressionAssessment {
+  /** Present on creation/detail responses; list responses may return an empty array. */
+  recommendations?: ActivityRecommendation[]
   assessmentId: number
   userId: number
   scaleId: number
@@ -341,6 +343,27 @@ export interface CreateDepressionAssessmentRequest {
   answers: JsonValue
   notes?: string
 }
+
+export interface ActivityRecommendation {
+  id: number
+  assessmentId: number
+  activity: 'breathing' | 'emotion_diary' | (string & {})
+  title: string
+  description: string
+  status: 'pending' | 'completed' | 'dismissed'
+  availableAt: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RecommendationList {
+  items: ActivityRecommendation[]
+  pollAfterSeconds: number
+}
+
+export type UpdateRecommendationRequest =
+  | { status: 'completed' | 'dismissed'; remindAt?: never }
+  | { status: 'pending'; remindAt: string }
 
 // ── Diary ──────────────────────────────────────────────────────────────────
 
