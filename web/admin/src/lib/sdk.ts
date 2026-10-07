@@ -2,6 +2,11 @@ import { createLocalStorageTokenStore, createAdminClient, createUserClient } fro
 
 export const tokenStore = createLocalStorageTokenStore(undefined, 'serverrs-admin')
 
+export const healthClient = createAdminClient({
+  baseUrl: import.meta.env.VITE_API_BASE_URL ?? '',
+  timeoutMs: 5_000,
+})
+
 // 管理员客户端（用于管理后台页面：用户管理、风险会话等）
 export const api = createAdminClient({
   baseUrl: import.meta.env.VITE_API_BASE_URL ?? '',

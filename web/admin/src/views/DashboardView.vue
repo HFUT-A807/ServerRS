@@ -5,23 +5,21 @@ import { LineChart, PieChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
-import type { KnowledgeReview, CountTrendResponse, RiskStatsResponse, StringCount } from '@serverrs/sdk'
-import { BookOpenCheck, Music2, ShieldAlert, Users, ArrowUpRight } from '@lucide/vue'
+import type { CountTrendResponse, RiskStatsResponse, StringCount } from '@serverrs/sdk'
+import { Music2, ShieldAlert, Users, ArrowUpRight } from '@lucide/vue'
 import { RouterLink } from 'vue-router'
 import { api } from '@/lib/sdk'
-import { formatDate, formatNumber, errorMessage } from '@/utils/format'
+import { formatNumber, errorMessage } from '@/utils/format'
 
 // 按需注册 ECharts 组件
 use([LineChart, PieChart, GridComponent, TooltipComponent, CanvasRenderer])
 
 const loading = ref(true)
 const error = ref('')
-const totals = ref({ users: 0, risks: 0, reviews: 0, music: 0 })
-const recentReviews = ref<KnowledgeReview[]>([])
+const totals = ref({ users: 0, risks: 0, music: 0 })
 
 const usersStats = ref<CountTrendResponse | null>(null)
 const risksStats = ref<RiskStatsResponse | null>(null)
-const reviewsStats = ref<CountTrendResponse | null>(null)
 const musicStats = ref<CountTrendResponse | null>(null)
 
 /* ── ECharts 配置 ── */
@@ -82,31 +80,24 @@ async function load() {
   loading.value = true
   error.value = ''
 
-  const [users, risks, reviews, music, us, rs, rvs, ms] = await Promise.allSettled([
+  const [users, risks, music, us, rs, ms] = await Promise.allSettled([
     api.admin.users({ page: 1, pageSize: 1 }),
     api.admin.riskConversations({ page: 1, pageSize: 1 }),
-    api.admin.knowledgeReviews({ page: 1, pageSize: 5 }),
     api.admin.tracks({ page: 1, pageSize: 1 }),
     api.admin.statsUsers(),
     api.admin.statsRisks(),
-    api.admin.statsReviews(),
     api.admin.statsMusic(),
   ])
 
   if (users.status === 'fulfilled') totals.value.users = users.value.total
   if (risks.status === 'fulfilled') totals.value.risks = risks.value.total
-  if (reviews.status === 'fulfilled') {
-    totals.value.reviews = reviews.value.total
-    recentReviews.value = reviews.value.items
-  }
   if (music.status === 'fulfilled') totals.value.music = music.value.total
 
   if (us.status === 'fulfilled') usersStats.value = us.value
   if (rs.status === 'fulfilled') risksStats.value = rs.value
-  if (rvs.status === 'fulfilled') reviewsStats.value = rvs.value
   if (ms.status === 'fulfilled') musicStats.value = ms.value
 
-  const rejected = [users, risks, reviews, music].find((item) => item.status === 'rejected')
+  const rejected = [users, risks, music, us, rs, ms].find((item) => item.status === 'rejected')
   if (rejected?.status === 'rejected') error.value = errorMessage(rejected.reason)
   loading.value = false
 }
@@ -141,12 +132,6 @@ onMounted(load)
         <VChart v-if="!loading" class="sparkline" :option="sparklineOption(risksStats?.trend.map(t => t.count) ?? [])" autoresize />
       </article>
       <article class="card stat-card">
-        <div class="stat-icon"><BookOpenCheck :size="19" /></div>
-        <strong>{{ loading ? '—' : formatNumber(totals.reviews) }}</strong>
-        <span>知识审核记录</span>
-        <VChart v-if="!loading" class="sparkline" :option="sparklineOption(reviewsStats?.trend.map(t => t.count) ?? [])" autoresize />
-      </article>
-      <article class="card stat-card">
         <div class="stat-icon"><Music2 :size="19" /></div>
         <strong>{{ loading ? '—' : formatNumber(totals.music) }}</strong>
         <span>音乐资源总数</span>
@@ -173,51 +158,13 @@ onMounted(load)
       </article>
     </section>
 
-    <!-- 最近知识审核 -->
     <section class="content-grid">
-      <article class="card">
-        <div class="card-header">
-          <h2>最近知识审核</h2>
-          <RouterLink class="button small ghost" to="/knowledge">查看全部</RouterLink>
-        </div>
-        <div v-if="loading" class="loading-state">正在汇总数据...</div>
-        <div v-else-if="!recentReviews.length" class="empty-state">暂无审核记录</div>
-        <div v-else class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr><th>文档</th><th>来源</th><th>状态</th><th>更新时间</th></tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in recentReviews" :key="item.publish_record_id">
-                <td>
-                  <RouterLink class="cell-title" :to="`/knowledge/${item.publish_record_id}`">
-                    <strong>{{ item.title || `文档 #${item.document_id}` }}</strong>
-                    <span>{{ item.source_url }}</span>
-                  </RouterLink>
-                </td>
-                <td>{{ item.source_name }}</td>
-                <td>
-                  <span class="badge" :class="item.publish_status === 'published' ? 'success' : item.publish_status === 'failed' ? 'danger' : ''">
-                    {{ item.publish_status }}
-                  </span>
-                </td>
-                <td>{{ formatDate(item.updated_at) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </article>
-
       <article class="card quick-card">
         <div class="card-header"><h2>快速入口</h2></div>
         <div class="card-body quick-links">
-          <RouterLink to="/knowledge">
-            <BookOpenCheck :size="20" />
-            <div><strong>审核知识</strong><span>检查质量与风险标记</span></div>
-          </RouterLink>
           <RouterLink to="/risks">
             <ShieldAlert :size="20" />
-            <div><strong>处理风险</strong><span>查看高风险对话内容</span></div>
+            <div><strong>查看风险</strong><span>查看高风险对话内容</span></div>
           </RouterLink>
           <RouterLink to="/users">
             <Users :size="20" />
@@ -257,7 +204,7 @@ onMounted(load)
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 20px;
 }
@@ -307,7 +254,7 @@ onMounted(load)
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.8fr);
+  grid-template-columns: 1fr;
   gap: 20px;
 }
 

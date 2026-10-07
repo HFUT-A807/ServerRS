@@ -165,6 +165,7 @@ impl AppConfig {
         };
         cfg.apply_env_overrides();
         cfg.resolve_tts_output_dir(&path);
+        cfg.resolve_admin_web_dir(&path);
         cfg.resolve_tunnel_templates()
             .unwrap_or_else(|e| panic!("invalid application configuration: {e}"));
         cfg.validate()
@@ -367,6 +368,17 @@ impl AppConfig {
             .parent()
             .unwrap_or_else(|| Path::new("."));
         self.tts.output_dir = base_dir.join(output_dir).to_string_lossy().into_owned();
+    }
+
+    fn resolve_admin_web_dir(&mut self, config_path: &str) {
+        let dir = Path::new(&self.server.admin_web_dir);
+        if self.server.admin_web_dir.is_empty() || dir.is_absolute() {
+            return;
+        }
+        let base_dir = Path::new(config_path)
+            .parent()
+            .unwrap_or_else(|| Path::new("."));
+        self.server.admin_web_dir = base_dir.join(dir).to_string_lossy().into_owned();
     }
 
     /// 返回所有被业务配置引用的 SSH 隧道名称。

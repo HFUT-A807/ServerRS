@@ -81,6 +81,7 @@ async fn serve(
 
     let app = router::build_router_with_origins(state, &config.cors.allowed_origins)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+    let app = crate::api::admin_web::mount(app, &config.server.admin_web_dir);
 
     let addr = format!("{}:{}", config.server.host, config.server.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;

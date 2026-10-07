@@ -8,6 +8,9 @@ pub struct ServerConfig {
     pub host: String,
     #[serde(default = "default_port")]
     pub port: u16,
+    /// Admin build directory, relative to config.toml. Empty disables hosting.
+    #[serde(default = "default_admin_web_dir")]
+    pub admin_web_dir: String,
 }
 
 impl Default for ServerConfig {
@@ -15,6 +18,7 @@ impl Default for ServerConfig {
         Self {
             host: default_host(),
             port: default_port(),
+            admin_web_dir: default_admin_web_dir(),
         }
     }
 }
@@ -24,6 +28,10 @@ fn default_host() -> String {
 }
 fn default_port() -> u16 {
     8080
+}
+
+fn default_admin_web_dir() -> String {
+    "web/admin/dist".into()
 }
 
 // ── DatabaseConfig ──

@@ -26,6 +26,8 @@ tower-http = { workspace = true, features = [
     "trace",
     "timeout",
     "compression-br",
+    "fs",
+    "set-header",
 ] }
 reqwest = { workspace = true, features = [
     "json",
@@ -88,6 +90,7 @@ default = ["qdrant"]
 qdrant = ["dep:qdrant-client", "digital-human/qdrant"]
 
 [dev-dependencies]
+tempfile.workspace = true
 proc-macro2 = { workspace = true, features = ["span-locations"] }
 syn = { workspace = true, features = ["full", "visit"] }
 

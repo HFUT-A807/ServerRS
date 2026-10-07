@@ -1,3 +1,14 @@
+FROM node:24-bookworm-slim AS admin-builder
+RUN npm install --global pnpm@11.6.0
+WORKDIR /src/web
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+COPY web/sdk/package.json ./sdk/package.json
+COPY web/admin/package.json ./admin/package.json
+RUN pnpm install --frozen-lockfile
+COPY web/sdk ./sdk
+COPY web/admin ./admin
+RUN pnpm build
+
 FROM rust:1.98-bookworm AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -19,6 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 COPY --from=builder /src/target/release/digital-human-server /usr/local/bin/digital-human-server
+COPY --from=admin-builder /src/web/admin/dist /app/web/admin/dist
 USER serverrs
 EXPOSE 8080
 ENV CONFIG_PATH=/app/config.toml

@@ -24,12 +24,12 @@ const router = createRouter({
         {
           path: 'knowledge',
           name: 'knowledge',
-          component: () => import('@/views/KnowledgeReviewsView.vue'),
+          component: () => import('@/views/KnowledgePausedView.vue'),
         },
         {
           path: 'knowledge/:id',
           name: 'knowledge-detail',
-          component: () => import('@/views/KnowledgeReviewDetailView.vue'),
+          component: () => import('@/views/KnowledgePausedView.vue'),
         },
         {
           path: 'psychology',

@@ -3,6 +3,7 @@ mod error;
 pub mod handlers;
 pub mod middleware;
 // pub mod response;
+pub mod admin_web;
 pub mod router;
 pub mod state;
 

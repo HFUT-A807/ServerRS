@@ -37,9 +37,9 @@ async function submit() {
       </div>
 
       <div class="intro-copy">
-        <span class="eyebrow">KNOWLEDGE · SAFETY · OPERATIONS</span>
+        <span class="eyebrow">SAFETY · HEALTH · OPERATIONS</span>
         <h1>把系统的复杂度，<br />留在可控的地方。</h1>
-        <p>统一管理用户、风险会话、知识审核与媒体资源。所有操作直接连接当前 ServerRS 接口。</p>
+        <p>统一管理用户、风险会话、心理健康内容与音乐资源。使用当前 ServerRS 后端进行身份验证和数据管理。</p>
       </div>
 
       <div class="intro-points">
