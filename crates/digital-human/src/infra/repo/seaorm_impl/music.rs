@@ -11,8 +11,11 @@ use crate::shared::error::AppError;
 
 use super::super::entities::music;
 
-fn map(m: music::Model) -> MusicTrack {
-    MusicTrack {
+fn map(m: music::Model) -> Result<MusicTrack, AppError> {
+    let file_data = String::from_utf8(m.file_data).map_err(|_| {
+        AppError::Internal(format!("track {} contains invalid base64 text", m.music_id))
+    })?;
+    Ok(MusicTrack {
         music_id: m.music_id,
         title: m.title,
         artist: m.artist,
@@ -20,7 +23,7 @@ fn map(m: music::Model) -> MusicTrack {
         category: m.category,
         description: m.description,
         duration: m.duration,
-        file_data: m.file_data,
+        file_data,
         file_size: m.file_size,
         mime_type: m.mime_type,
         cover_image: m.cover_image,
@@ -30,7 +33,7 @@ fn map(m: music::Model) -> MusicTrack {
         status: m.status,
         created_at: m.created_at.and_utc(),
         updated_at: m.updated_at.and_utc(),
-    }
+    })
 }
 
 #[derive(DerivePartialModel)]
@@ -83,10 +86,8 @@ impl MusicRepo {
     }
 }
 
-// Note: music.file_data has `#[sea_orm(ignore)]` because SeaORM codegen cannot
-// directly model LONGBLOB columns.  Inserts and updates that include file_data
-// fall back to raw SQL via `execute_unprepared` while reads use the model
-// (select_as = "text") path.
+// Store and fetch base64 as LONGBLOB bytes, converting to UTF-8 at the domain
+// boundary. Avoid SQL casts, which can fail or lose the file_data column alias.
 
 #[async_trait]
 impl MusicRepoT for MusicRepo {
@@ -128,7 +129,7 @@ impl MusicRepoT for MusicRepo {
             .await
             .map_err(map_err)?
             .ok_or_else(|| AppError::Internal("created music track not found".into()))?;
-        Ok(map(inserted))
+        map(inserted)
     }
 
     async fn find_by_id(&self, id: u64) -> Result<Option<MusicTrack>, AppError> {
@@ -136,7 +137,7 @@ impl MusicRepoT for MusicRepo {
             .one(&self.db)
             .await
             .map_err(map_err)
-            .map(|o| o.map(map))
+            .and_then(|o| o.map(map).transpose())
     }
 
     async fn find_all(
@@ -243,7 +244,7 @@ impl MusicRepoT for MusicRepo {
             am.status = Set(status);
         }
         am.updated_at = Set(chrono::Utc::now().naive_utc());
-        Ok(map(am.update(&self.db).await.map_err(map_err)?))
+        map(am.update(&self.db).await.map_err(map_err)?)
     }
 
     async fn delete_by_id(&self, id: u64) -> Result<bool, AppError> {

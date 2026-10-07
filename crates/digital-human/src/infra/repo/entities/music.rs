@@ -15,8 +15,9 @@ pub struct Model {
     #[sea_orm(column_type = "Text", nullable)]
     pub description: Option<String>,
     pub duration: Option<u32>,
-    #[sea_orm(column_type = "custom(\"longblob\")", select_as = "text")]
-    pub file_data: String,
+    // Read LONGBLOB as bytes; the repository decodes its base64 text as UTF-8.
+    #[sea_orm(column_type = "custom(\"longblob\")")]
+    pub file_data: Vec<u8>,
     pub file_size: u64,
     pub mime_type: String,
     #[sea_orm(column_type = "Binary(255)", nullable)]
