@@ -1,17 +1,27 @@
 <script setup lang="ts">
-import type { AdminRiskConversationDetail, RiskAuditAdminDto } from '@serverrs/sdk'
-import { ArrowLeft, ShieldAlert } from '@lucide/vue'
+import type { AdminRiskConversationDetail } from '@serverrs/sdk'
+import { ArrowLeft } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-
+import RiskAuditCard from '@/components/RiskAuditCard.vue'
 import { api } from '@/lib/sdk'
-import { errorMessage, formatDate, statusTone } from '@/utils/format'
+import { errorMessage, formatDate } from '@/utils/format'
+import { auditRows, messageText } from '@/utils/risk-detail'
 
 const route = useRoute()
 const id = computed(() => Number(route.params.id))
 const detail = ref<AdminRiskConversationDetail | null>(null)
 const loading = ref(false)
 const error = ref('')
+const timeline = computed(() =>
+  detail.value ? auditRows(detail.value) : { rows: [], unmatched: [] },
+)
+const roles: Record<string, string> = {
+  user: '用户',
+  assistant: '助手',
+  system: '系统',
+  tool: '工具',
+}
 
 async function load() {
   loading.value = true
@@ -24,7 +34,6 @@ async function load() {
     loading.value = false
   }
 }
-
 onMounted(load)
 </script>
 
@@ -34,63 +43,52 @@ onMounted(load)
       <div>
         <RouterLink class="back-link" to="/risks"><ArrowLeft :size="15" />返回风险会话</RouterLink>
         <h1>{{ detail?.conversation.title || `会话 #${id}` }}</h1>
-        <p>完整消息上下文与风险检测记录。</p>
+        <p>按对话顺序查看消息，右侧显示该轮关联的自动化审计。</p>
       </div>
       <button class="button" :disabled="loading" @click="load">刷新</button>
     </header>
-
     <div v-if="loading" class="card loading-state">正在加载会话详情...</div>
     <div v-else-if="error && !detail" class="card error-state">{{ error }}</div>
     <template v-else-if="detail">
       <p v-if="error" class="notice">{{ error }}</p>
-      <section class="risk-layout">
-        <article class="card">
-          <div class="card-header">
-            <h2>对话消息</h2>
-            <span class="badge">{{ detail.messages.length }} 条</span>
-          </div>
-          <div class="message-list">
+      <div class="timeline-heading">
+        <h2>
+          对话消息 <span class="badge">{{ detail.messages.length }} 条</span>
+        </h2>
+        <h2>
+          自动化审计 <span class="badge">{{ detail.risk_audits.length }} 条</span>
+        </h2>
+      </div>
+      <section class="timeline">
+        <div v-for="(row, index) in timeline.rows" :key="row.messages[0]?.id" class="turn-row">
+          <article class="card turn-messages">
+            <div class="turn-label">对话 {{ index + 1 }}</div>
             <div
-              v-for="message in detail.messages"
+              v-for="message in row.messages"
               :key="message.id"
               class="message"
               :class="message.sender_role"
             >
               <div class="message-meta">
-                <strong>{{ message.sender_role }}</strong>
+                <strong>{{ roles[message.sender_role] || message.sender_role }}</strong>
                 <span>{{ formatDate(message.created_at) }}</span>
               </div>
-              <p>{{ message.content }}</p>
+              <p>{{ messageText(message.content) }}</p>
             </div>
-            <div v-if="!detail.messages.length" class="empty-state">该会话暂无消息</div>
-          </div>
-        </article>
-
-        <aside class="detections">
-          <article
-            v-for="item in detail.risk_audits"
-            :key="item.audit_id"
-            class="card detection-card"
-          >
-            <div class="detection-heading">
-              <div class="stat-icon"><ShieldAlert :size="18" /></div>
-              <div>
-                <span class="badge" :class="statusTone(item.risk_level ?? 'none')">{{ item.risk_level || 'none' }}</span>
-                <strong>审计 #{{ item.audit_id }}</strong>
-              </div>
-            </div>
-            <dl class="detail-list">
-              <div class="detail-row"><dt>检测范围</dt><dd>{{ item.audit_scope }}</dd></div>
-              <div class="detail-row"><dt>检测器</dt><dd>{{ item.detector_name || '-' }}</dd></div>
-              <div class="detail-row"><dt>状态</dt><dd>{{ item.status }}</dd></div>
-              <div class="detail-row"><dt>置信度</dt><dd>{{ item.confidence != null ? Math.round(item.confidence * 100) + '%' : '-' }}</dd></div>
-              <div class="detail-row"><dt>错误信息</dt><dd>{{ item.error_message || '-' }}</dd></div>
-              <div class="detail-row"><dt>来源已删除</dt><dd>{{ item.source_deleted ? '是' : '否' }}</dd></div>
-              <div class="detail-row"><dt>检测时间</dt><dd>{{ formatDate(item.created_at) }}</dd></div>
-            </dl>
           </article>
-          <div v-if="!detail.risk_audits.length" class="card empty-state">暂无风险审计记录</div>
-        </aside>
+          <aside class="turn-audits" :aria-label="`对话 ${index + 1} 的审计`">
+            <RiskAuditCard v-for="item in row.audits" :key="item.audit_id" :item="item" />
+            <p v-if="!row.audits.length" class="audit-empty">该轮暂无关联审计</p>
+          </aside>
+        </div>
+        <div v-if="!detail.messages.length" class="card empty-state">该会话暂无消息</div>
+      </section>
+      <section v-if="timeline.unmatched.length" class="unmatched">
+        <h2>其他审计记录</h2>
+        <p>原消息已删除或缺少关联信息，无法定位到具体对话。</p>
+        <div class="unmatched-grid">
+          <RiskAuditCard v-for="item in timeline.unmatched" :key="item.audit_id" :item="item" />
+        </div>
       </section>
     </template>
   </div>
@@ -106,117 +104,115 @@ onMounted(load)
   font-size: 12px;
   font-weight: 700;
 }
-
 .notice {
   margin-bottom: 16px;
 }
-
-.risk-layout {
+.timeline-heading,
+.turn-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.75fr);
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.8fr);
   gap: 20px;
   align-items: start;
 }
-
-.message-list {
-  display: grid;
-  gap: 14px;
-  padding: 20px;
+.timeline-heading {
+  margin-bottom: 12px;
 }
-
+.timeline-heading h2 {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.timeline {
+  display: grid;
+  gap: 16px;
+}
+.turn-messages {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.turn-label {
+  font-size: 11px;
+  color: var(--muted);
+}
 .message {
-  max-width: 86%;
-  padding: 13px 15px;
+  max-width: 92%;
+  padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 4px 14px 14px 14px;
-  background: #f7faf8;
+  background: var(--surface-soft);
+  color: var(--ink);
+  min-width: 0;
 }
-
 .message.assistant {
   justify-self: end;
   border-radius: 14px 4px 14px 14px;
   background: var(--brand-soft);
 }
-
 .message.system,
 .message.tool {
   max-width: 100%;
   border-style: dashed;
-  background: #fff7ea;
+  background: var(--accent-soft);
 }
-
 .message-meta {
   display: flex;
   justify-content: space-between;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 4px 14px;
   margin-bottom: 7px;
   font-size: 11px;
 }
-
 .message-meta span {
   color: var(--muted);
 }
-
 .message p {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-
-.detections {
-  display: grid;
-  gap: 16px;
-}
-
-.detection-card {
-  padding: 18px;
-}
-
-.detection-heading {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  margin-bottom: 12px;
-}
-
-.detection-heading > div:last-child {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.detail-row {
-  grid-template-columns: 92px minmax(0, 1fr);
-  gap: 12px;
-  font-size: 12px;
-}
-
-.processed-box {
-  display: flex;
-  gap: 9px;
-  margin-top: 16px;
-  padding: 12px;
-  border-radius: 10px;
-  color: var(--success);
-  background: var(--success-soft);
-}
-
-.processed-box p {
-  margin-top: 2px;
-  color: #4f6e65;
-  font-size: 11px;
-}
-
-.process-form {
+.turn-audits {
   display: grid;
   gap: 10px;
-  margin-top: 16px;
+  min-width: 0;
 }
-
+.audit-empty {
+  padding: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.unmatched {
+  margin-top: 24px;
+}
+.unmatched h2 {
+  font-size: 15px;
+}
+.unmatched > p {
+  color: var(--muted);
+  margin: 6px 0 12px;
+  font-size: 12px;
+}
+.unmatched-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
 @media (max-width: 1050px) {
-  .risk-layout {
+  .turn-row,
+  .timeline-heading {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .timeline-heading h2:last-child {
+    display: none;
+  }
+  .turn-row {
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .message {
+    max-width: 100%;
   }
 }
 </style>

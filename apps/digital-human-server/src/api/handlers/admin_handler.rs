@@ -101,6 +101,8 @@ pub struct RiskConversationDetail {
 pub struct RiskAuditAdminDto {
     pub audit_id: u64,
     pub conversation_id: u64,
+    pub user_message_ref_id: Option<u64>,
+    pub assistant_message_ref_id: Option<u64>,
     pub audit_scope: String,
     pub status: String,
     pub risk_level: Option<String>,
@@ -318,6 +320,8 @@ pub async fn get_risk_conversation(
             .map(|a| RiskAuditAdminDto {
                 audit_id: a.audit_id,
                 conversation_id: a.conversation_id,
+                user_message_ref_id: a.user_message_ref_id,
+                assistant_message_ref_id: a.assistant_message_ref_id,
                 audit_scope: a.audit_scope,
                 status: a.status,
                 risk_level: a.risk_level,

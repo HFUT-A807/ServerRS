@@ -664,6 +664,8 @@ export interface PaginatedAdminUsers {
 export interface RiskAuditAdminDto {
   audit_id: number
   conversation_id: number
+  user_message_ref_id?: number | null
+  assistant_message_ref_id?: number | null
   audit_scope: string
   status: string
   risk_level: string | null
