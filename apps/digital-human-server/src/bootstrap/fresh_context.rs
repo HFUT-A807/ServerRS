@@ -25,6 +25,10 @@ use crate::shared::config::{AppConfig, FreshContextConfig};
 use crate::shared::error::AppError;
 use digital_human::repositories::build_fresh_context_repository;
 
+/// 暂时搁置 Fresh Context：同时熔断后台处理和聊天检索，配置无法绕过。
+/// 恢复前先完成端到端验证，再解除此开关并配置数据源。
+pub(crate) const FRESH_CONTEXT_SUSPENDED: bool = true;
+
 pub async fn init_fresh_context(
     config: &AppConfig,
     db: &DatabaseConnection,
@@ -32,6 +36,11 @@ pub async fn init_fresh_context(
     embedding_provider: &Arc<dyn EmbeddingProvider>,
     background: &mut BackgroundTasks,
 ) -> Result<(), AppError> {
+    if FRESH_CONTEXT_SUSPENDED {
+        info!("Fresh Context 已搁置，后台采集、处理、聚合和索引任务不启动");
+        return Ok(());
+    }
+
     let fc = &config.fresh_context;
     let use_case_config = FreshContextUseCaseConfig::from(fc);
     let adapter_config = FreshContextAdapterConfig::from(fc);
