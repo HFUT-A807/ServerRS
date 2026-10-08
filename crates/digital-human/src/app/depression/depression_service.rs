@@ -6,6 +6,8 @@ use crate::domain::depression::{
 };
 use crate::shared::error::AppError;
 
+use super::scoring::{compute_score, determine_severity};
+
 pub struct DepressionService {
     pub repo: Arc<dyn DepressionRepoT>,
 }
@@ -38,14 +40,8 @@ impl DepressionService {
     ) -> Result<AssessmentDetail, AppError> {
         let scale = self.get_scale(scale_id).await?;
 
-        let total_score = compute_score(&answers)?;
-        if total_score < scale.min_score as i32 || total_score > scale.max_score as i32 {
-            return Err(AppError::Validation(format!(
-                "assessment score {total_score} is outside scale range {}..={}",
-                scale.min_score, scale.max_score
-            )));
-        }
-        let severity_level = determine_severity(&scale.severity_ranges, total_score);
+        let total_score = compute_score(&scale, &answers)?;
+        let severity_level = determine_severity(&scale, total_score)?;
 
         let assessment = self
             .repo
@@ -91,16 +87,14 @@ impl DepressionService {
             .map(|assessment| {
                 let severity_level = scales
                     .get(&assessment.scale_id)
-                    .map(|scale| {
-                        determine_severity(&scale.severity_ranges, assessment.total_score as i32)
-                    })
-                    .unwrap_or_else(|| "unknown".to_string());
-                AssessmentDetail {
+                    .map(|scale| determine_severity(scale, assessment.total_score as i32))
+                    .unwrap_or_else(|| Ok("unknown".to_string()))?;
+                Ok(AssessmentDetail {
                     assessment,
                     severity_level,
-                }
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>, AppError>>()?;
         Ok((items, total))
     }
 
@@ -118,7 +112,7 @@ impl DepressionService {
             return Err(AppError::Forbidden("not your assessment".into()));
         }
         let scale = self.get_scale(a.scale_id).await?;
-        let severity_level = determine_severity(&scale.severity_ranges, a.total_score as i32);
+        let severity_level = determine_severity(&scale, a.total_score as i32)?;
         Ok(AssessmentDetail {
             assessment: a,
             severity_level,
@@ -150,50 +144,153 @@ pub struct AssessmentDetail {
     pub severity_level: String,
 }
 
-fn compute_score(answers: &serde_json::Value) -> Result<i32, AppError> {
-    let values: Vec<&serde_json::Value> = match answers {
-        serde_json::Value::Object(map) if !map.is_empty() => map.values().collect(),
-        serde_json::Value::Array(arr) if !arr.is_empty() => arr.iter().collect(),
-        _ => {
-            return Err(AppError::Validation(
-                "answers must be a non-empty object or array".into(),
-            ));
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_trait::async_trait;
+    use serde_json::json;
+    use std::sync::Mutex;
+
+    struct TestRepo {
+        scale: DepressionScale,
+        saved: Mutex<Vec<DepressionAssessment>>,
+    }
+
+    fn repo() -> Arc<TestRepo> {
+        Arc::new(TestRepo {
+            scale: DepressionScale {
+                scale_id: 1,
+                scale_name: "test".into(),
+                scale_description: None,
+                min_score: 0,
+                max_score: 3,
+                questions: json!([{"id":9,"options":[{"score":0},{"score":1},{"score":2},{"score":3}]}]),
+                severity_ranges: json!([{"range":"0-1","label":"minimal"},{"range":"2-3","label":"elevated"}]),
+                created_at: None,
+                updated_at: None,
+            },
+            saved: Mutex::new(Vec::new()),
+        })
+    }
+
+    #[async_trait]
+    impl DepressionRepoT for TestRepo {
+        async fn find_scale_by_id(&self, id: u16) -> Result<Option<DepressionScale>, AppError> {
+            Ok((id == self.scale.scale_id).then(|| self.scale.clone()))
         }
-    };
-
-    values.into_iter().try_fold(0_i32, |total, value| {
-        let score = value.as_i64().ok_or_else(|| {
-            AppError::Validation("every assessment answer must be an integer".into())
-        })?;
-        let score = i32::try_from(score)
-            .map_err(|_| AppError::Validation("assessment answer is out of range".into()))?;
-        total
-            .checked_add(score)
-            .ok_or_else(|| AppError::Validation("assessment score overflow".into()))
-    })
-}
-
-fn determine_severity(severity_ranges: &serde_json::Value, score: i32) -> String {
-    if let Some(ranges) = severity_ranges.as_array() {
-        for range in ranges {
-            let min = range
-                .get("min")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(i64::MIN);
-            let max = range
-                .get("max")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(i64::MAX);
-            if score >= min as i32 && score <= max as i32 {
-                if let Some(label) = range
-                    .get("level")
-                    .or_else(|| range.get("label"))
-                    .and_then(|v| v.as_str())
-                {
-                    return label.to_string();
-                }
-            }
+        async fn list_scales(&self) -> Result<Vec<DepressionScale>, AppError> {
+            Ok(vec![self.scale.clone()])
+        }
+        async fn save_assessment(
+            &self,
+            new: NewDepressionAssessment,
+            total_score: i16,
+        ) -> Result<DepressionAssessment, AppError> {
+            let a = DepressionAssessment {
+                assessment_id: 1,
+                user_id: new.user_id,
+                scale_id: new.scale_id,
+                assessment_date: chrono::Utc::now().date_naive(),
+                answers: new.answers,
+                total_score,
+                notes: new.notes,
+                created_at: None,
+                updated_at: None,
+            };
+            self.saved.lock().unwrap().push(a.clone());
+            Ok(a)
+        }
+        async fn find_assessment_by_id(
+            &self,
+            id: u64,
+        ) -> Result<Option<DepressionAssessment>, AppError> {
+            Ok(self
+                .saved
+                .lock()
+                .unwrap()
+                .iter()
+                .find(|a| a.assessment_id == id)
+                .cloned())
+        }
+        async fn find_assessments_by_user_id(
+            &self,
+            user_id: u64,
+            _: u64,
+            _: u64,
+        ) -> Result<(Vec<DepressionAssessment>, u64), AppError> {
+            let records: Vec<_> = self
+                .saved
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|a| a.user_id == user_id)
+                .cloned()
+                .collect();
+            let count = records.len() as u64;
+            Ok((records, count))
+        }
+        async fn update_assessment(
+            &self,
+            _: u64,
+            _: Option<String>,
+        ) -> Result<DepressionAssessment, AppError> {
+            unreachable!()
+        }
+        async fn delete_assessment(&self, _: u64) -> Result<u64, AppError> {
+            unreachable!()
         }
     }
-    "unknown".to_string()
+
+    #[tokio::test]
+    async fn invalid_answers_and_missing_scale_never_save() {
+        let r = repo();
+        let service = DepressionService::new(r.clone());
+        for answers in [json!([]), json!([4]), json!({"1":0}), json!([0, 0])] {
+            assert!(matches!(
+                service.create_assessment(7, 1, answers, None).await,
+                Err(AppError::Validation(_))
+            ));
+        }
+        assert!(matches!(
+            service.create_assessment(7, 99, json!([0]), None).await,
+            Err(AppError::NotFound(_))
+        ));
+        assert!(r.saved.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn invalid_ranges_never_save() {
+        let mut r = repo();
+        Arc::get_mut(&mut r).unwrap().scale.severity_ranges = json!([{"label":"minimal"}]);
+        let service = DepressionService::new(r.clone());
+        assert!(matches!(
+            service.create_assessment(7, 1, json!([0]), None).await,
+            Err(AppError::Internal(_))
+        ));
+        assert!(r.saved.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn creation_detail_and_list_use_the_same_grade_and_preserve_ownership() {
+        let r = repo();
+        let service = DepressionService::new(r.clone());
+        let a = service
+            .create_assessment(7, 1, json!({"9":3}), None)
+            .await
+            .unwrap();
+        assert_eq!(a.assessment.total_score, 3);
+        assert_eq!(a.severity_level, "elevated");
+        assert_eq!(
+            service.get_assessment(7, 1).await.unwrap().severity_level,
+            "elevated"
+        );
+        let (records, total) = service.list_assessments(7, 1, 20).await.unwrap();
+        assert_eq!(total, 1);
+        assert_eq!(records[0].severity_level, "elevated");
+        assert!(matches!(
+            service.get_assessment(8, 1).await,
+            Err(AppError::Forbidden(_))
+        ));
+        assert_eq!(service.list_assessments(8, 1, 20).await.unwrap().1, 0);
+    }
 }

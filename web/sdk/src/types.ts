@@ -299,12 +299,15 @@ export interface DepressionScaleQuestion {
   options: DepressionScaleOption[]
 }
 
-export interface DepressionSeverityRange {
-  min: number
-  max: number
-  level: string
-  label?: string
+export type DepressionSeverityRange = (
+  | { min: number; max: number; range?: never }
+  | { range: string; min?: never; max?: never }
+) & (
+  | { level: string; label?: string }
+  | { label: string; level?: string }
+) & {
   guidance?: string
+  /** Display metadata; not a server-side scoring formula. */
   standard_score?: string
 }
 
