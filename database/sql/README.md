@@ -8,6 +8,10 @@
 
 `mock.sql` 仅用于开发样例数据，不用于生产升级。量表种子数据由 `seed_psychology_depression.sql` 提供，按环境需要单独初始化。
 
+两份脚本的量表定义已统一为 PHQ-9（9 题）、SDS（20 题）、CES-D（20 题）。执行 `python database/scripts/check_depression_scales.py` 可核对题号、选项分值、反向题、评分区间及模拟评估的完整性。已有库不要直接用种子脚本覆盖与历史记录关联的量表 ID。
+
+2026-10-08 已核验 HP 在线量表完整，仅通过 `migrations/20261008_sds_scoring_description.sql` 明确 SDS 的四舍五入说明。该迁移可重复执行，不改题目、分值或历史评估。详见 [量表同步核验记录](../../docs/depression-scale-sync-20261008.md)。
+
 ## 已有数据库升级
 
 先完整备份，再对比实际结构，只执行缺失的增量迁移。不要按目录顺序重复执行所有历史脚本。

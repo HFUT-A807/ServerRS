@@ -277,25 +277,95 @@ VALUES
 (40, 20, 3, 39,   '谢谢祝福，一起继续记录心情颜色。',               '[]', 2, 1, '2026-06-11 19:05:00', '2026-06-11 19:05:00');
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- Depression Scales (3)
+-- Depression Scales (3): PHQ-9 / SDS / CES-D; identical to the production seed
 -- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO depression_scales (scale_id, scale_name, scale_description, min_score, max_score, severity_ranges, questions, created_at, updated_at)
+INSERT INTO depression_scales
+    (scale_id, scale_name, scale_description, min_score, max_score, severity_ranges, questions)
 VALUES
-(1, 'PHQ-9', '患者健康问卷抑郁量表（PHQ-9），用于评估过去两周的抑郁程度，9 题累计 0-27 分。',
+(1, 'PHQ-9',
+ '患者健康问卷抑郁量表（PHQ-9）完整版。评估过去两周9类抑郁症状，每题0–3分，总分0–27分。常用分界点为5、10、15、20分。该量表仅用于筛查和症状监测，不能代替诊断；无论总分多少，第9题只要非0分都应进一步进行自伤/自杀风险评估。若有立即伤害自己的危险，请联系120/110或心理援助热线12356。',
  0, 27,
- '[{"range":"0-4","label":"无或最小程度抑郁"},{"range":"5-9","label":"轻度抑郁"},{"range":"10-14","label":"中度抑郁"},{"range":"15-19","label":"中重度抑郁"},{"range":"20-27","label":"重度抑郁"}]',
- '[{"id":1,"text":"对做事情缺乏兴趣或乐趣","options":[{"score":0,"label":"完全没有"},{"score":1,"label":"几天"},{"score":2,"label":"超过一半天"},{"score":3,"label":"几乎每天"}]},{"id":2,"text":"感到情绪低落、沮丧或无望","options":[{"score":0,"label":"完全没有"},{"score":1,"label":"几天"},{"score":2,"label":"超过一半天"},{"score":3,"label":"几乎每天"}]},{"id":3,"text":"难以入睡、睡眠不佳或睡得过多","options":[{"score":0,"label":"完全没有"},{"score":1,"label":"几天"},{"score":2,"label":"超过一半天"},{"score":3,"label":"几乎每天"}]},{"id":4,"text":"感到疲乏或精力不足","options":[{"score":0,"label":"完全没有"},{"score":1,"label":"几天"},{"score":2,"label":"超过一半天"},{"score":3,"label":"几乎每天"}]},{"id":5,"text":"食欲不振或过度饮食","options":[{"score":0,"label":"完全没有"},{"score":1,"label":"几天"},{"score":2,"label":"超过一半天"},{"score":3,"label":"几乎每天"}]},{"id":6,"text":"对自己感到不满，觉得自己失败或让家人失望","options":[{"score":0,"label":"完全没有"},{"score":1,"label":"几天"},{"score":2,"label":"超过一半天"},{"score":3,"label":"几乎每天"}]},{"id":7,"text":"难以专注于做事","options":[{"score":0,"label":"完全没有"},{"score":1,"label":"几天"},{"score":2,"label":"超过一半天"},{"score":3,"label":"几乎每天"}]},{"id":8,"text":"动作或讲话变慢，或者烦躁不安","options":[{"score":0,"label":"完全没有"},{"score":1,"label":"几天"},{"score":2,"label":"超过一半天"},{"score":3,"label":"几乎每天"}]},{"id":9,"text":"觉得活着没有意义、或想到伤害自己","options":[{"score":0,"label":"完全没有"},{"score":1,"label":"几天"},{"score":2,"label":"超过一半天"},{"score":3,"label":"几乎每天"}]}]',
- '2026-06-10 09:00:00', '2026-06-10 09:00:00'),
-(2, 'SDS', '自评抑郁量表（SDS），采用 4 级频率评分，原始分 20-80。',
+ JSON_ARRAY(
+   JSON_OBJECT('min',0,'max',4,'level','无或极轻微','label','无或极轻微','guidance','关注日常作息；如持续困扰仍可咨询专业人员'),
+   JSON_OBJECT('min',5,'max',9,'level','轻度','label','轻度','guidance','建议观察症状和功能影响，必要时寻求专业评估'),
+   JSON_OBJECT('min',10,'max',14,'level','中度','label','中度','guidance','建议预约精神科、心理科或合格心理专业人员评估'),
+   JSON_OBJECT('min',15,'max',19,'level','中重度','label','中重度','guidance','建议尽快接受专业评估与干预'),
+   JSON_OBJECT('min',20,'max',27,'level','重度','label','重度','guidance','建议尽快接受专业评估；如有自伤危险立即求助')
+ ),
+ JSON_ARRAY(
+   JSON_OBJECT('id',1,'text','做事时提不起兴趣或没有乐趣','period','过去两周','options',JSON_ARRAY(JSON_OBJECT('score',0,'label','完全没有'),JSON_OBJECT('score',1,'label','有几天'),JSON_OBJECT('score',2,'label','一半以上时间'),JSON_OBJECT('score',3,'label','几乎每天'))),
+   JSON_OBJECT('id',2,'text','感到心情低落、沮丧或绝望','period','过去两周','options',JSON_ARRAY(JSON_OBJECT('score',0,'label','完全没有'),JSON_OBJECT('score',1,'label','有几天'),JSON_OBJECT('score',2,'label','一半以上时间'),JSON_OBJECT('score',3,'label','几乎每天'))),
+   JSON_OBJECT('id',3,'text','入睡困难、睡不安稳或睡眠过多','period','过去两周','options',JSON_ARRAY(JSON_OBJECT('score',0,'label','完全没有'),JSON_OBJECT('score',1,'label','有几天'),JSON_OBJECT('score',2,'label','一半以上时间'),JSON_OBJECT('score',3,'label','几乎每天'))),
+   JSON_OBJECT('id',4,'text','感到疲倦或缺乏精力','period','过去两周','options',JSON_ARRAY(JSON_OBJECT('score',0,'label','完全没有'),JSON_OBJECT('score',1,'label','有几天'),JSON_OBJECT('score',2,'label','一半以上时间'),JSON_OBJECT('score',3,'label','几乎每天'))),
+   JSON_OBJECT('id',5,'text','食欲不振或吃得过多','period','过去两周','options',JSON_ARRAY(JSON_OBJECT('score',0,'label','完全没有'),JSON_OBJECT('score',1,'label','有几天'),JSON_OBJECT('score',2,'label','一半以上时间'),JSON_OBJECT('score',3,'label','几乎每天'))),
+   JSON_OBJECT('id',6,'text','觉得自己很糟、很失败，或让自己或家人失望','period','过去两周','options',JSON_ARRAY(JSON_OBJECT('score',0,'label','完全没有'),JSON_OBJECT('score',1,'label','有几天'),JSON_OBJECT('score',2,'label','一半以上时间'),JSON_OBJECT('score',3,'label','几乎每天'))),
+   JSON_OBJECT('id',7,'text','难以集中注意力，例如阅读或看电视时','period','过去两周','options',JSON_ARRAY(JSON_OBJECT('score',0,'label','完全没有'),JSON_OBJECT('score',1,'label','有几天'),JSON_OBJECT('score',2,'label','一半以上时间'),JSON_OBJECT('score',3,'label','几乎每天'))),
+   JSON_OBJECT('id',8,'text','动作或说话慢到别人可能察觉，或相反地烦躁、坐立不安','period','过去两周','options',JSON_ARRAY(JSON_OBJECT('score',0,'label','完全没有'),JSON_OBJECT('score',1,'label','有几天'),JSON_OBJECT('score',2,'label','一半以上时间'),JSON_OBJECT('score',3,'label','几乎每天'))),
+   JSON_OBJECT('id',9,'text','想到不如死去，或有伤害自己的念头','period','过去两周','risk_item',true,'risk_message','本题非0分时，无论总分高低都应进行进一步风险评估；如存在立即危险，请联系120/110或12356。','options',JSON_ARRAY(JSON_OBJECT('score',0,'label','完全没有'),JSON_OBJECT('score',1,'label','有几天'),JSON_OBJECT('score',2,'label','一半以上时间'),JSON_OBJECT('score',3,'label','几乎每天')))
+ )),
+(2, 'SDS',
+ 'Zung抑郁自评量表（SDS）20题完整版，按过去一周症状频率作答。每题1–4分，其中10个正向条目反向计分，原始总分20–80分；中国常用标准分为原始分×1.25后四舍五入取整数，常用参考界值为53、63、73分。数据库按对应原始分区间分级。仅作筛查，不代替临床诊断。第19题涉及死亡想法，非最低选项时应进一步评估风险。',
  20, 80,
- '[{"range":"20-39","label":"无抑郁"},{"range":"40-49","label":"轻度抑郁"},{"range":"50-59","label":"中度抑郁"},{"range":"60-80","label":"重度抑郁"}]',
- '[{"id":1,"text":"我觉得闷闷不乐，情绪低沉","options":[{"score":1,"label":"很少"},{"score":2,"label":"有时"},{"score":3,"label":"经常"},{"score":4,"label":"持续"}]},{"id":2,"text":"我仍旧像往常一样享受生活中的乐趣","options":[{"score":4,"label":"持续"},{"score":3,"label":"经常"},{"score":2,"label":"有时"},{"score":1,"label":"很少"}]},{"id":3,"text":"我忽然觉得要哭了","options":[{"score":1,"label":"很少"},{"score":2,"label":"有时"},{"score":3,"label":"经常"},{"score":4,"label":"持续"}]},{"id":4,"text":"我晚上睡眠不好","options":[{"score":1,"label":"很少"},{"score":2,"label":"有时"},{"score":3,"label":"经常"},{"score":4,"label":"持续"}]},{"id":5,"text":"我吃饭和往常一样多","options":[{"score":4,"label":"持续"},{"score":3,"label":"经常"},{"score":2,"label":"有时"},{"score":1,"label":"很少"}]},{"id":6,"text":"我的心跳比平时快","options":[{"score":1,"label":"很少"},{"score":2,"label":"有时"},{"score":3,"label":"经常"},{"score":4,"label":"持续"}]},{"id":7,"text":"我平时做事慢吞吞","options":[{"score":1,"label":"很少"},{"score":2,"label":"有时"},{"score":3,"label":"经常"},{"score":4,"label":"持续"}]},{"id":8,"text":"我对未来充满信心","options":[{"score":4,"label":"持续"},{"score":3,"label":"经常"},{"score":2,"label":"有时"},{"score":1,"label":"很少"}]},{"id":9,"text":"我觉得比平时容易疲劳","options":[{"score":1,"label":"很少"},{"score":2,"label":"有时"},{"score":3,"label":"经常"},{"score":4,"label":"持续"}]},{"id":10,"text":"我的头脑依然像往常一样清楚","options":[{"score":4,"label":"持续"},{"score":3,"label":"经常"},{"score":2,"label":"有时"},{"score":1,"label":"很少"}]}]',
- '2026-06-10 09:05:00', '2026-06-10 09:05:00'),
-(3, 'BDI-II', '贝克抑郁量表第二版（BDI-II），每题 0-3 级别描述，累计 0-63 分。',
- 0, 63,
- '[{"range":"0-13","label":"最小抑郁"},{"range":"14-19","label":"轻度抑郁"},{"range":"20-28","label":"中度抑郁"},{"range":"29-63","label":"重度抑郁"}]',
- '[{"id":1,"text":"悲伤程度","options":[{"score":0,"label":"没有特别悲伤"},{"score":1,"label":"偶尔有些悲伤"},{"score":2,"label":"经常感到悲伤"},{"score":3,"label":"持续深度悲伤"}]},{"id":2,"text":"对未来的悲观","options":[{"score":0,"label":"对未来乐观"},{"score":1,"label":"有时担心未来"},{"score":2,"label":"觉得未来黯淡"},{"score":3,"label":"确信未来绝望"}]},{"id":3,"text":"失败感","options":[{"score":0,"label":"不觉得失败"},{"score":1,"label":"有时觉得失败"},{"score":2,"label":"常感失败"},{"score":3,"label":"一直觉得完全失败"}]},{"id":4,"text":"丧失快乐能力","options":[{"score":0,"label":"仍能享受活动"},{"score":1,"label":"快乐感下降"},{"score":2,"label":"难以从活动中获得快乐"},{"score":3,"label":"完全失去快乐感"}]},{"id":5,"text":"罪恶感","options":[{"score":0,"label":"几乎没有罪恶感"},{"score":1,"label":"偶尔感到内疚"},{"score":2,"label":"经常觉得自己不好"},{"score":3,"label":"持续觉得自己糟糕"}]},{"id":6,"text":"惩罚感","options":[{"score":0,"label":"不觉得该受罚"},{"score":1,"label":"有时觉得该受罚"},{"score":2,"label":"常常觉得该受罚"},{"score":3,"label":"确信自己应受惩罚"}]},{"id":7,"text":"不喜欢自己","options":[{"score":0,"label":"喜欢自己"},{"score":1,"label":"有时不喜欢自己"},{"score":2,"label":"经常不喜欢自己"},{"score":3,"label":"完全讨厌自己"}]},{"id":8,"text":"自我批评","options":[{"score":0,"label":"与他人一样优秀"},{"score":1,"label":"对自己严格"},{"score":2,"label":"常自我批评"},{"score":3,"label":"持续自我指责"}]},{"id":9,"text":"自杀念头","options":[{"score":0,"label":"没有想法"},{"score":1,"label":"偶尔闪过想法"},{"score":2,"label":"常想到自伤"},{"score":3,"label":"已有计划或行动"}]},{"id":10,"text":"哭泣频率","options":[{"score":0,"label":"与平时相同"},{"score":1,"label":"哭得更多"},{"score":2,"label":"几乎每天哭"},{"score":3,"label":"想哭却哭不出来"}]},{"id":11,"text":"易怒程度","options":[{"score":0,"label":"不比平时易怒"},{"score":1,"label":"稍微易怒"},{"score":2,"label":"常常易怒"},{"score":3,"label":"持续怒火难控"}]},{"id":12,"text":"社交退缩","options":[{"score":0,"label":"愿意与人交往"},{"score":1,"label":"较少社交"},{"score":2,"label":"常回避社交"},{"score":3,"label":"完全不与人交往"}]},{"id":13,"text":"优柔寡断","options":[{"score":0,"label":"决策正常"},{"score":1,"label":"决策变慢"},{"score":2,"label":"难以下决定"},{"score":3,"label":"几乎无法决定任何事"}]},{"id":14,"text":"无价值感","options":[{"score":0,"label":"感觉自己有价值"},{"score":1,"label":"偶尔怀疑价值"},{"score":2,"label":"常觉得自己无价值"},{"score":3,"label":"确信自己毫无价值"}]},{"id":15,"text":"精力水平","options":[{"score":0,"label":"精力正常"},{"score":1,"label":"精力下降"},{"score":2,"label":"精力很低"},{"score":3,"label":"几乎无精力"}]},{"id":16,"text":"睡眠变化","options":[{"score":0,"label":"睡眠正常"},{"score":1,"label":"入睡稍有困难"},{"score":2,"label":"严重失眠或嗜睡"},{"score":3,"label":"几乎无法维持睡眠"}]},{"id":17,"text":"疲劳程度","options":[{"score":0,"label":"不比平时疲劳"},{"score":1,"label":"稍感疲劳"},{"score":2,"label":"常感疲劳"},{"score":3,"label":"极度疲劳难以活动"}]},{"id":18,"text":"食欲变化","options":[{"score":0,"label":"食欲正常"},{"score":1,"label":"食欲略降或略增"},{"score":2,"label":"明显变化"},{"score":3,"label":"几乎不能进食或控制进食"}]},{"id":19,"text":"体重变化","options":[{"score":0,"label":"体重稳定"},{"score":1,"label":"轻微变化"},{"score":2,"label":"明显变化"},{"score":3,"label":"体重大幅波动"}]},{"id":20,"text":"性欲下降","options":[{"score":0,"label":"性欲正常"},{"score":1,"label":"性欲略降"},{"score":2,"label":"性欲明显下降"},{"score":3,"label":"完全没有性欲"}]}]',
- '2026-06-10 09:10:00', '2026-06-10 09:10:00');
+ JSON_ARRAY(
+   JSON_OBJECT('min',20,'max',41,'level','正常范围','label','正常范围','standard_score','25–52'),
+   JSON_OBJECT('min',42,'max',49,'level','轻度','label','轻度','standard_score','53–62'),
+   JSON_OBJECT('min',50,'max',57,'level','中度','label','中度','standard_score','63–72'),
+   JSON_OBJECT('min',58,'max',80,'level','重度','label','重度','standard_score','73–100')
+ ),
+ JSON_ARRAY(
+   JSON_OBJECT('id',1,'text','我感到情绪低沉、郁闷','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',1,'label','没有或很少'),JSON_OBJECT('score',2,'label','有时'),JSON_OBJECT('score',3,'label','大部分时间'),JSON_OBJECT('score',4,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',2,'text','我在早晨心情最好','reverse_scored',true,'options',JSON_ARRAY(JSON_OBJECT('score',4,'label','没有或很少'),JSON_OBJECT('score',3,'label','有时'),JSON_OBJECT('score',2,'label','大部分时间'),JSON_OBJECT('score',1,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',3,'text','我会突然哭出来或想哭','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',1,'label','没有或很少'),JSON_OBJECT('score',2,'label','有时'),JSON_OBJECT('score',3,'label','大部分时间'),JSON_OBJECT('score',4,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',4,'text','我夜间睡眠不好','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',1,'label','没有或很少'),JSON_OBJECT('score',2,'label','有时'),JSON_OBJECT('score',3,'label','大部分时间'),JSON_OBJECT('score',4,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',5,'text','我的食量跟平常一样','reverse_scored',true,'options',JSON_ARRAY(JSON_OBJECT('score',4,'label','没有或很少'),JSON_OBJECT('score',3,'label','有时'),JSON_OBJECT('score',2,'label','大部分时间'),JSON_OBJECT('score',1,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',6,'text','我仍然享有正常的性兴趣','reverse_scored',true,'options',JSON_ARRAY(JSON_OBJECT('score',4,'label','没有或很少'),JSON_OBJECT('score',3,'label','有时'),JSON_OBJECT('score',2,'label','大部分时间'),JSON_OBJECT('score',1,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',7,'text','我感到体重在下降','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',1,'label','没有或很少'),JSON_OBJECT('score',2,'label','有时'),JSON_OBJECT('score',3,'label','大部分时间'),JSON_OBJECT('score',4,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',8,'text','我有便秘的烦恼','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',1,'label','没有或很少'),JSON_OBJECT('score',2,'label','有时'),JSON_OBJECT('score',3,'label','大部分时间'),JSON_OBJECT('score',4,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',9,'text','我的心跳比平时快','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',1,'label','没有或很少'),JSON_OBJECT('score',2,'label','有时'),JSON_OBJECT('score',3,'label','大部分时间'),JSON_OBJECT('score',4,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',10,'text','我无缘无故感到疲乏','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',1,'label','没有或很少'),JSON_OBJECT('score',2,'label','有时'),JSON_OBJECT('score',3,'label','大部分时间'),JSON_OBJECT('score',4,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',11,'text','我的头脑跟平常一样清楚','reverse_scored',true,'options',JSON_ARRAY(JSON_OBJECT('score',4,'label','没有或很少'),JSON_OBJECT('score',3,'label','有时'),JSON_OBJECT('score',2,'label','大部分时间'),JSON_OBJECT('score',1,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',12,'text','我做事情跟平常一样不觉得困难','reverse_scored',true,'options',JSON_ARRAY(JSON_OBJECT('score',4,'label','没有或很少'),JSON_OBJECT('score',3,'label','有时'),JSON_OBJECT('score',2,'label','大部分时间'),JSON_OBJECT('score',1,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',13,'text','我坐卧不安，难以保持平静','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',1,'label','没有或很少'),JSON_OBJECT('score',2,'label','有时'),JSON_OBJECT('score',3,'label','大部分时间'),JSON_OBJECT('score',4,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',14,'text','我对未来抱有希望','reverse_scored',true,'options',JSON_ARRAY(JSON_OBJECT('score',4,'label','没有或很少'),JSON_OBJECT('score',3,'label','有时'),JSON_OBJECT('score',2,'label','大部分时间'),JSON_OBJECT('score',1,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',15,'text','我比平常更容易激动或烦躁','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',1,'label','没有或很少'),JSON_OBJECT('score',2,'label','有时'),JSON_OBJECT('score',3,'label','大部分时间'),JSON_OBJECT('score',4,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',16,'text','我觉得作决定是容易的','reverse_scored',true,'options',JSON_ARRAY(JSON_OBJECT('score',4,'label','没有或很少'),JSON_OBJECT('score',3,'label','有时'),JSON_OBJECT('score',2,'label','大部分时间'),JSON_OBJECT('score',1,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',17,'text','我觉得自己是有用和被需要的人','reverse_scored',true,'options',JSON_ARRAY(JSON_OBJECT('score',4,'label','没有或很少'),JSON_OBJECT('score',3,'label','有时'),JSON_OBJECT('score',2,'label','大部分时间'),JSON_OBJECT('score',1,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',18,'text','我的生活过得很有意义','reverse_scored',true,'options',JSON_ARRAY(JSON_OBJECT('score',4,'label','没有或很少'),JSON_OBJECT('score',3,'label','有时'),JSON_OBJECT('score',2,'label','大部分时间'),JSON_OBJECT('score',1,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',19,'text','我认为如果我死了，别人会生活得更好','reverse_scored',false,'risk_item',true,'risk_message','本题不是最低频率时，应进一步进行自伤/自杀风险评估；如存在立即危险，请联系120/110或12356。','options',JSON_ARRAY(JSON_OBJECT('score',1,'label','没有或很少'),JSON_OBJECT('score',2,'label','有时'),JSON_OBJECT('score',3,'label','大部分时间'),JSON_OBJECT('score',4,'label','绝大部分或全部时间'))),
+   JSON_OBJECT('id',20,'text','平常感兴趣的事我仍然感兴趣','reverse_scored',true,'options',JSON_ARRAY(JSON_OBJECT('score',4,'label','没有或很少'),JSON_OBJECT('score',3,'label','有时'),JSON_OBJECT('score',2,'label','大部分时间'),JSON_OBJECT('score',1,'label','绝大部分或全部时间')))
+ )),
+(3, 'CES-D',
+ '流调中心抑郁量表（CES-D）20题版，用于了解过去一周抑郁症状出现频率。每题0–3分，第4、8、12、16题反向计分，总分0–60分；16分是原量表常用筛查界值，但不同人群的最佳界值可能不同。结果只表示需要进一步评估的可能性，不等于抑郁症诊断。',
+ 0, 60,
+ JSON_ARRAY(
+   JSON_OBJECT('min',0,'max',15,'level','未达到常用筛查界值','label','未达到常用筛查界值','guidance','如症状持续或影响生活，仍建议咨询专业人员'),
+   JSON_OBJECT('min',16,'max',60,'level','达到常用筛查界值','label','达到常用筛查界值','guidance','建议由精神科、心理科或合格心理专业人员进一步评估')
+ ),
+ JSON_ARRAY(
+   JSON_OBJECT('id',1,'text','一些平时不困扰我的事也让我烦恼','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',2,'text','我不想吃东西，胃口不好','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',3,'text','即使家人朋友帮助我，我仍难以摆脱苦闷','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',4,'text','我觉得自己和别人一样好','reverse_scored',true,'options',JSON_ARRAY(JSON_OBJECT('score',3,'label','少于1天'),JSON_OBJECT('score',2,'label','1–2天'),JSON_OBJECT('score',1,'label','3–4天'),JSON_OBJECT('score',0,'label','5–7天'))),
+   JSON_OBJECT('id',5,'text','我难以集中注意力做事','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',6,'text','我感到情绪低落','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',7,'text','我觉得做任何事都很费力','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',8,'text','我对未来抱有希望','reverse_scored',true,'options',JSON_ARRAY(JSON_OBJECT('score',3,'label','少于1天'),JSON_OBJECT('score',2,'label','1–2天'),JSON_OBJECT('score',1,'label','3–4天'),JSON_OBJECT('score',0,'label','5–7天'))),
+   JSON_OBJECT('id',9,'text','我觉得过去的生活是失败的','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',10,'text','我感到害怕','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',11,'text','我的睡眠不好','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',12,'text','我感到高兴','reverse_scored',true,'options',JSON_ARRAY(JSON_OBJECT('score',3,'label','少于1天'),JSON_OBJECT('score',2,'label','1–2天'),JSON_OBJECT('score',1,'label','3–4天'),JSON_OBJECT('score',0,'label','5–7天'))),
+   JSON_OBJECT('id',13,'text','我比平时说话少','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',14,'text','我感到孤单','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',15,'text','人们对我不友好','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',16,'text','我享受生活','reverse_scored',true,'options',JSON_ARRAY(JSON_OBJECT('score',3,'label','少于1天'),JSON_OBJECT('score',2,'label','1–2天'),JSON_OBJECT('score',1,'label','3–4天'),JSON_OBJECT('score',0,'label','5–7天'))),
+   JSON_OBJECT('id',17,'text','我有过哭泣','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',18,'text','我感到悲伤','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',19,'text','我觉得别人不喜欢我','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天'))),
+   JSON_OBJECT('id',20,'text','我提不起劲来做事','reverse_scored',false,'options',JSON_ARRAY(JSON_OBJECT('score',0,'label','少于1天'),JSON_OBJECT('score',1,'label','1–2天'),JSON_OBJECT('score',2,'label','3–4天'),JSON_OBJECT('score',3,'label','5–7天')))
+ ))
+ON DUPLICATE KEY UPDATE
+ scale_name=VALUES(scale_name), scale_description=VALUES(scale_description), min_score=VALUES(min_score),
+ max_score=VALUES(max_score), severity_ranges=VALUES(severity_ranges), questions=VALUES(questions);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Depression Assessments (5 sample records)
@@ -303,19 +373,19 @@ VALUES
 INSERT INTO depression_assessments (assessment_id, user_id, scale_id, assessment_date, answers, total_score, notes, created_at, updated_at)
 VALUES
 (1, 1, 1, '2026-06-10',
- '[{"qId":1,"score":1},{"qId":2,"score":2},{"qId":3,"score":2},{"qId":4,"score":1},{"qId":5,"score":0},{"qId":6,"score":1},{"qId":7,"score":1},{"qId":8,"score":0},{"qId":9,"score":0}]',
+ '{"1":1,"2":2,"3":2,"4":1,"5":0,"6":1,"7":1,"8":0,"9":0}',
  8, '轻度抑郁症状，主要表现为情绪低落和睡眠不佳。', '2026-06-10 10:00:00', '2026-06-10 10:00:00'),
 (2, 2, 1, '2026-06-09',
- '[{"qId":1,"score":2},{"qId":2,"score":2},{"qId":3,"score":1},{"qId":4,"score":2},{"qId":5,"score":1},{"qId":6,"score":2},{"qId":7,"score":2},{"qId":8,"score":1},{"qId":9,"score":0}]',
+ '{"1":2,"2":2,"3":1,"4":2,"5":1,"6":2,"7":2,"8":1,"9":0}',
  13, '中度抑郁，需关注焦虑躯体化症状（手心出汗）。', '2026-06-09 15:30:00', '2026-06-09 15:30:00'),
 (3, 4, 1, '2026-06-08',
- '[{"qId":1,"score":0},{"qId":2,"score":1},{"qId":3,"score":0},{"qId":4,"score":1},{"qId":5,"score":0},{"qId":6,"score":1},{"qId":7,"score":0},{"qId":8,"score":0},{"qId":9,"score":0}]',
+ '{"1":0,"2":1,"3":0,"4":1,"5":0,"6":1,"7":0,"8":0,"9":0}',
  3, '正常范围，情绪总体稳定。', '2026-06-08 09:00:00', '2026-06-08 09:00:00'),
 (4, 5, 2, '2026-06-07',
- '[{"qId":1,"score":2},{"qId":2,"score":3},{"qId":3,"score":1},{"qId":4,"score":3},{"qId":5,"score":2},{"qId":6,"score":2},{"qId":7,"score":1},{"qId":8,"score":3},{"qId":9,"score":2},{"qId":10,"score":3}]',
+ '{"1":2,"2":3,"3":1,"4":3,"5":2,"6":2,"7":1,"8":3,"9":2,"10":3,"11":2,"12":2,"13":2,"14":2,"15":2,"16":2,"17":2,"18":3,"19":3,"20":3}',
  45, 'SDS 评估为轻度抑郁，主要表现为睡眠困难和入睡困难。', '2026-06-07 20:00:00', '2026-06-07 20:00:00'),
 (5, 3, 1, '2026-06-06',
- '[{"qId":1,"score":0},{"qId":2,"score":0},{"qId":3,"score":0},{"qId":4,"score":1},{"qId":5,"score":0},{"qId":6,"score":0},{"qId":7,"score":1},{"qId":8,"score":0},{"qId":9,"score":0}]',
+ '{"1":0,"2":0,"3":0,"4":1,"5":0,"6":0,"7":1,"8":0,"9":0}',
  2, '几乎无抑郁症状，注意力略有困扰。', '2026-06-06 11:00:00', '2026-06-06 11:00:00');
 
 -- ─────────────────────────────────────────────────────────────────────────────
