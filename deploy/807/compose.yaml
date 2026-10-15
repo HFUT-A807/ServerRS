@@ -1,0 +1,89 @@
+name: serverrs-807
+
+services:
+  mysql:
+    image: mysql:8.4.10
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      MYSQL_ROOT_HOST: "%"
+      MYSQL_DATABASE: digital_companion
+    command: ["--max-allowed-packet=1G"]
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - /home/x/ServerRSData/mysql8:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  qdrant:
+    image: qdrant/qdrant:v1.18.2
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    volumes:
+      - /home/x/ServerRSData/qdrant/storage:/qdrant/storage
+
+  backend:
+    image: serverrs/backend:807
+    restart: unless-stopped
+    # Native Ollama and loopback-only database services are on this host.
+    network_mode: host
+    depends_on:
+      mysql:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      CONFIG_PATH: /app/config.toml
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+      - /home/x/ServerRSData/uploads:/app/uploads
+      - /home/x/ServerRSData/logs:/app/logs
+      - /home/x/ServerRSData/tts:/app/data/digital-human-tts
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 6
+
+  public-tunnel:
+    image: serverrs/backend:807
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      backend:
+        condition: service_healthy
+    entrypoint: /usr/bin/ssh
+    command:
+      - "-N"
+      - "-T"
+      - "-i"
+      - /run/ssh/key
+      - "-o"
+      - BatchMode=yes
+      - "-o"
+      - StrictHostKeyChecking=yes
+      - "-o"
+      - UserKnownHostsFile=/run/ssh/known_hosts
+      - "-o"
+      - ExitOnForwardFailure=yes
+      - "-o"
+      - ServerAliveInterval=30
+      - "-o"
+      - ServerAliveCountMax=3
+      - "-p"
+      - "2002"
+      - "-R"
+      - "0.0.0.0:8080:127.0.0.1:8080"
+      - ubuntu@49.235.180.131
+    volumes:
+      - /home/x/ServerRSData/public-ssh/key:/run/ssh/key:ro
+      - /home/x/ServerRSData/public-ssh/known_hosts:/run/ssh/known_hosts:ro
