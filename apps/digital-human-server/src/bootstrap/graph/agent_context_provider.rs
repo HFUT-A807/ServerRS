@@ -33,7 +33,8 @@ pub(crate) async fn build_agent_context_builder(
 }
 
 fn build_fresh_retrieval_service(ctx: &BootstrapContext<'_>) -> Option<Arc<FreshRetrievalService>> {
-    if crate::bootstrap::fresh_context::FRESH_CONTEXT_SUSPENDED || !ctx.config.fresh_context.enabled {
+    if crate::bootstrap::fresh_context::FRESH_CONTEXT_SUSPENDED || !ctx.config.fresh_context.enabled
+    {
         return None;
     }
 
