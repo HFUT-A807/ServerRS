@@ -8,6 +8,7 @@ agent-core.workspace = true
 ai-core.workspace = true
 
 async-trait.workspace = true
+lettre.workspace = true
 tokio = { workspace = true, features = [
     "macros",
     "rt-multi-thread",

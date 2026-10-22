@@ -9,6 +9,8 @@ use crate::infra::tasks::in_memory_task_flow::{
 };
 use crate::infra::tasks::logging_handler::LoggingHandler;
 use crate::infra::tasks::rate_limit_handler::{RateLimitConfig, RateLimitHandler};
+use crate::infra::tasks::risk_mail_handler::RiskMailHandler;
+use crate::shared::config::MailConfig;
 
 pub struct BackgroundTasks {
     handles: Vec<tokio::task::JoinHandle<()>>,
@@ -51,19 +53,34 @@ pub struct TaskContext {
 
 impl TaskContext {
     /// 构造任务系统前半段：告警、限流、通道、Publisher。
-    pub fn new(user_repo: Arc<dyn UserRepoT>) -> Self {
+    pub fn new(user_repo: Arc<dyn UserRepoT>, mail: &MailConfig) -> Result<Self, std::io::Error> {
         let mut background = BackgroundTasks::new();
 
         let alert_handler = Arc::new(AlertHandler::new(AlertConfig::default()));
-        let rate_limit_handler =
-            Arc::new(RateLimitHandler::new(RateLimitConfig::default(), user_repo));
+        let rate_limit_handler = Arc::new(RateLimitHandler::new(
+            RateLimitConfig::default(),
+            Arc::clone(&user_repo),
+        ));
+
+        let mail_handler = if mail.enabled {
+            let (handler, handle) = RiskMailHandler::start(mail, user_repo)
+                .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidInput, error))?;
+            background.spawn(handle);
+            Some(handler)
+        } else {
+            tracing::info!("风险邮件提醒未启用（mail.enabled=false）");
+            None
+        };
 
         let (tp, tw) = new_task_channel(256);
         let _retry_handle = RetryingTaskPublisher::spawn_retry_worker(tp.clone());
-        let task_worker = tw
+        let mut task_worker = tw
             .with_handler(Arc::new(LoggingHandler))
             .with_handler(Arc::clone(&alert_handler) as Arc<dyn TaskHandler>)
             .with_handler(Arc::clone(&rate_limit_handler) as Arc<dyn TaskHandler>);
+        if let Some(handler) = mail_handler {
+            task_worker = task_worker.with_handler(Arc::new(handler));
+        }
 
         // 有状态处理器的定期清理
         {
@@ -89,13 +106,13 @@ impl TaskContext {
 
         let task_publisher: Arc<dyn TaskPublisher> = Arc::new(tp);
 
-        Self {
+        Ok(Self {
             task_publisher,
             background,
             task_worker: Some(task_worker),
             alert_handler,
             rate_limit_handler,
-        }
+        })
     }
 
     /// 后半段注册：在业务服务就绪后调用。注册依赖服务的 handler 并启动 worker。

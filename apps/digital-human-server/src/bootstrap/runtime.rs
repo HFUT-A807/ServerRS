@@ -27,7 +27,7 @@ pub async fn run(config: AppConfig) -> Result<(), std::io::Error> {
         &config.vector_store.summary_index_name,
     );
     // 阶段 3: 任务系统
-    let mut tasks = TaskContext::new(Arc::clone(&repos.user_repo));
+    let mut tasks = TaskContext::new(Arc::clone(&repos.user_repo), &config.mail)?;
     // 认证（在向量之前，因为任务清理需要它）
     let auth_graph = build_auth(
         &infra.db,

@@ -1,3 +1,15 @@
+# 风险邮件提醒：配置发件服务后启用；密码建议用 MAIL_PASSWORD 环境变量。
+[mail]
+enabled = false
+host = "smtp.example.com"
+port = 587
+tls_mode = "starttls" # 587 STARTTLS；465 使用 tls，均强制加密
+username = ""
+password = ""
+from_address = "noreply@example.com"
+timeout_secs = 15
+min_interval_secs = 300
+
 [ssh_tunnels.mysql]
 host = "HP"
 local_port = 13306

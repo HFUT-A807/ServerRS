@@ -175,6 +175,7 @@ impl AppConfig {
 
     /// Validate configuration consistency.
     pub fn validate(&self) -> Result<(), String> {
+        self.mail.validate()?;
         self.validate_tunnel_references()?;
         validate_required_url(&self.database.url, "database.url")?;
         if self.database.max_connections == 0 {
@@ -491,6 +492,33 @@ impl AppConfig {
     /// Override configuration fields with environment variables.
     /// Does NOT log the actual values for security.
     pub fn apply_env_overrides(&mut self) {
+        if let Ok(value) = std::env::var("MAIL_ENABLED") {
+            self.mail.enabled = value.parse().expect("MAIL_ENABLED must be true or false");
+        }
+        for (name, field) in [
+            ("MAIL_HOST", &mut self.mail.host),
+            ("MAIL_USERNAME", &mut self.mail.username),
+            ("MAIL_PASSWORD", &mut self.mail.password),
+            ("MAIL_FROM_ADDRESS", &mut self.mail.from_address),
+            ("MAIL_TLS_MODE", &mut self.mail.tls_mode),
+        ] {
+            if let Ok(value) = std::env::var(name) {
+                *field = value;
+            }
+        }
+        if let Ok(value) = std::env::var("MAIL_PORT") {
+            self.mail.port = value.parse().expect("MAIL_PORT must be a valid port");
+        }
+        if let Ok(value) = std::env::var("MAIL_TIMEOUT_SECS") {
+            self.mail.timeout_secs = value
+                .parse()
+                .expect("MAIL_TIMEOUT_SECS must be a positive integer");
+        }
+        if let Ok(value) = std::env::var("MAIL_MIN_INTERVAL_SECS") {
+            self.mail.min_interval_secs = value
+                .parse()
+                .expect("MAIL_MIN_INTERVAL_SECS must be a positive integer");
+        }
         if let Ok(val) = std::env::var("DATABASE_URL") {
             if !val.is_empty() {
                 self.database.url = val;

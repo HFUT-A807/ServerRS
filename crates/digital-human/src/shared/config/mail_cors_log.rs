@@ -74,7 +74,7 @@ fn default_max_retries() -> u32 {
 
 // ── MailConfig ──
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct MailConfig {
     #[serde(default)]
     pub enabled: bool,
@@ -88,6 +88,13 @@ pub struct MailConfig {
     pub password: String,
     #[serde(default = "default_mail_from")]
     pub from_address: String,
+    /// starttls（通常 587）或 tls（通常 465），均强制加密。
+    #[serde(default = "default_mail_tls")]
+    pub tls_mode: String,
+    #[serde(default = "default_mail_timeout")]
+    pub timeout_secs: u64,
+    #[serde(default = "default_mail_interval")]
+    pub min_interval_secs: u64,
 }
 
 impl Default for MailConfig {
@@ -99,8 +106,68 @@ impl Default for MailConfig {
             username: String::new(),
             password: String::new(),
             from_address: default_mail_from(),
+            tls_mode: default_mail_tls(),
+            timeout_secs: default_mail_timeout(),
+            min_interval_secs: default_mail_interval(),
         }
     }
+}
+
+impl std::fmt::Debug for MailConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MailConfig")
+            .field("enabled", &self.enabled)
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("username", &self.username)
+            .field("password", &"[redacted]")
+            .field("from_address", &self.from_address)
+            .field("tls_mode", &self.tls_mode)
+            .field("timeout_secs", &self.timeout_secs)
+            .field("min_interval_secs", &self.min_interval_secs)
+            .finish()
+    }
+}
+
+impl MailConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        if !self.enabled {
+            return Ok(());
+        }
+        if self.host.trim().is_empty() || self.host == "smtp.example.com" || self.port == 0 {
+            return Err("mail.host and mail.port must specify a real SMTP server".into());
+        }
+        if self.username.trim().is_empty() || self.password.is_empty() {
+            return Err("mail.username and mail.password are required when mail is enabled".into());
+        }
+        if self
+            .from_address
+            .parse::<lettre::message::Mailbox>()
+            .is_err()
+        {
+            return Err("mail.from_address must be a valid mailbox".into());
+        }
+        if !matches!(self.tls_mode.as_str(), "starttls" | "tls") {
+            return Err("mail.tls_mode must be starttls or tls".into());
+        }
+        if self.timeout_secs == 0 || self.timeout_secs > 120 || self.min_interval_secs == 0 {
+            return Err(
+                "mail.timeout_secs must be 1..120 and mail.min_interval_secs must be positive"
+                    .into(),
+            );
+        }
+        Ok(())
+    }
+}
+
+fn default_mail_tls() -> String {
+    "starttls".into()
+}
+fn default_mail_timeout() -> u64 {
+    15
+}
+fn default_mail_interval() -> u64 {
+    300
 }
 
 fn default_mail_host() -> String {
