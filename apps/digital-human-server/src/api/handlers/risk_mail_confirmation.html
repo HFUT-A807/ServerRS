@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>监护人提醒确认</title>
+<style>body{margin:0;background:#f4f7f9;color:#22313c;font:16px/1.8 system-ui,sans-serif}main{max-width:480px;margin:12vh auto;padding:32px;background:white;border-radius:16px;box-shadow:0 8px 32px #1231}h1{font-size:24px}button{border:0;border-radius:8px;background:#176b78;color:white;padding:12px 24px;font:inherit;cursor:pointer}button:disabled{opacity:.6;cursor:default}p{white-space:pre-wrap}small{color:#667580}@media(max-width:600px){main{margin:32px 16px;padding:24px}}</style></head>
+<body><main><small>ServerRS · 监护人通知</small><h1>确认收到风险提醒</h1><p>请确认您已收到邮件，并将关注被监护人的情况。确认后，本条提醒将停止补发；这不代表相关风险已解除。</p><button id="confirm" disabled>确认收到</button><p id="result" role="status"></p><small>此页面不提供实时紧急救援服务。</small></main>
+<script>
+const token=location.hash.slice(1);history.replaceState(null,'',location.pathname);
+const button=document.getElementById('confirm'),result=document.getElementById('result');
+if(token.length>0&&token.length<=2048){button.disabled=false}else{result.textContent='链接缺少有效信息，请重新打开邮件中的完整链接。'}
+button.addEventListener('click',async()=>{button.disabled=true;result.textContent='正在保存确认…';try{const response=await fetch('/api/v1/mail/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});const data=await response.json();result.textContent=data.message;if(!response.ok)button.disabled=false;else button.textContent='已确认'}catch{result.textContent='网络连接失败，请稍后重试。';button.disabled=false}});
+</script></body></html>

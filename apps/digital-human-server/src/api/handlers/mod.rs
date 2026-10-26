@@ -13,4 +13,5 @@ pub mod stats_handler;
 pub mod tts_handler;
 pub mod user_handler;
 
+pub mod risk_mail_handler;
 pub mod wellbeing_handler;

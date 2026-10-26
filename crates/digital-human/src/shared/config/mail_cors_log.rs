@@ -95,6 +95,9 @@ pub struct MailConfig {
     pub timeout_secs: u64,
     #[serde(default = "default_mail_interval")]
     pub min_interval_secs: u64,
+    /// Public origin used in guardian confirmation links.
+    #[serde(default)]
+    pub public_base_url: String,
 }
 
 impl Default for MailConfig {
@@ -109,6 +112,7 @@ impl Default for MailConfig {
             tls_mode: default_mail_tls(),
             timeout_secs: default_mail_timeout(),
             min_interval_secs: default_mail_interval(),
+            public_base_url: String::new(),
         }
     }
 }
@@ -125,6 +129,7 @@ impl std::fmt::Debug for MailConfig {
             .field("tls_mode", &self.tls_mode)
             .field("timeout_secs", &self.timeout_secs)
             .field("min_interval_secs", &self.min_interval_secs)
+            .field("public_base_url", &self.public_base_url)
             .finish()
     }
 }
@@ -133,6 +138,18 @@ impl MailConfig {
     pub fn validate(&self) -> Result<(), String> {
         if !self.enabled {
             return Ok(());
+        }
+        let url = url::Url::parse(&self.public_base_url)
+            .map_err(|_| "mail.public_base_url must be a public HTTP(S) origin")?;
+        if !matches!(url.scheme(), "http" | "https")
+            || url.host_str().is_none()
+            || !url.username().is_empty()
+            || url.password().is_some()
+            || url.query().is_some()
+            || url.fragment().is_some()
+            || url.path() != "/"
+        {
+            return Err("mail.public_base_url must be an HTTP(S) origin without path, credentials, query or fragment".into());
         }
         if self.host.trim().is_empty() || self.host == "smtp.example.com" || self.port == 0 {
             return Err("mail.host and mail.port must specify a real SMTP server".into());

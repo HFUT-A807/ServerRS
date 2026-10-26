@@ -9,6 +9,7 @@ password = ""
 from_address = "noreply@example.com"
 timeout_secs = 15
 min_interval_secs = 300
+public_base_url = "http://49.235.180.131:8080"
 
 [ssh_tunnels.mysql]
 host = "HP"

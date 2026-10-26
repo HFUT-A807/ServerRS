@@ -27,7 +27,13 @@ pub async fn run(config: AppConfig) -> Result<(), std::io::Error> {
         &config.vector_store.summary_index_name,
     );
     // 阶段 3: 任务系统
-    let mut tasks = TaskContext::new(Arc::clone(&repos.user_repo), &config.mail)?;
+    let mut tasks = TaskContext::new(
+        Arc::clone(&repos.user_repo),
+        &config.mail,
+        &infra.db,
+        &config.jwt.secret,
+    )
+    .await?;
     // 认证（在向量之前，因为任务清理需要它）
     let auth_graph = build_auth(
         &infra.db,
@@ -75,12 +81,18 @@ async fn serve(
     shutdown_token: CancellationToken,
 ) -> Result<(), std::io::Error> {
     let dispatcher_handle = services.dispatcher_handle.take();
+    let mail_confirmation = tasks.mail_confirmation.clone();
     let mut task_guard =
         RuntimeTaskGuard::new(shutdown_token.clone(), dispatcher_handle, tasks.background);
     let state = build_state(&services);
 
     let app = router::build_router_with_origins(state, &config.cors.allowed_origins)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+    let app = if let Some(confirmation) = mail_confirmation {
+        app.merge(crate::api::handlers::risk_mail_handler::confirmation_router(confirmation))
+    } else {
+        app
+    };
     let app = crate::api::admin_web::mount(app, &config.server.admin_web_dir);
 
     let addr = format!("{}:{}", config.server.host, config.server.port);

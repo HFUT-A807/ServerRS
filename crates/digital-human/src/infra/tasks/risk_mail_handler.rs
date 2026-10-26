@@ -1,10 +1,9 @@
 //! 中高风险邮件：独立有界队列，SMTP 不阻塞共享任务分发器。
-use std::{
-    collections::HashMap,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
 
+use crate::domain::risk::risk_mail_notification::{
+    RiskMailLinkT, RiskMailNotification, RiskMailRepoT,
+};
 use async_trait::async_trait;
 use lettre::{
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
@@ -50,6 +49,8 @@ impl RiskMailHandler {
     pub fn start(
         config: &MailConfig,
         user_repo: Arc<dyn UserRepoT>,
+        repo: Arc<dyn RiskMailRepoT>,
+        confirmation: Arc<dyn RiskMailLinkT>,
     ) -> Result<(Self, tokio::task::JoinHandle<()>), String> {
         config.validate()?;
         if !config.enabled {
@@ -78,8 +79,8 @@ impl RiskMailHandler {
                 .parse()
                 .map_err(|_| "invalid mail.from_address")?,
             timeout: Duration::from_secs(config.timeout_secs),
-            interval: Duration::from_secs(config.min_interval_secs),
-            sent: HashMap::new(),
+            repo,
+            confirmation,
         };
         let (queue, receiver) = mpsc::channel(256);
         let handle = tokio::spawn(worker.run(receiver));
@@ -119,24 +120,27 @@ struct MailWorker {
     sender: Arc<dyn MailSender>,
     from: Mailbox,
     timeout: Duration,
-    interval: Duration,
-    sent: HashMap<(u64, String), Instant>,
+    repo: Arc<dyn RiskMailRepoT>,
+    confirmation: Arc<dyn RiskMailLinkT>,
 }
 
 impl MailWorker {
     async fn run(mut self, mut receiver: mpsc::Receiver<RiskDetectedTask>) {
-        while let Some(event) = receiver.recv().await {
-            self.deliver(&event).await;
+        let mut timer = tokio::time::interval(Duration::from_secs(5));
+        timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            tokio::select! {
+                event=receiver.recv() => match event {
+                    Some(event) => self.deliver(&event).await,
+                    None => break,
+                },
+                _=timer.tick() => self.process_due().await,
+            }
         }
     }
 
     async fn deliver(&mut self, event: &RiskDetectedTask) {
         if !should_notify(event.risk_level) {
-            return;
-        }
-        self.sent.retain(|_, time| time.elapsed() < self.interval);
-        let key = (event.user_id, format!("{:?}", event.risk_level));
-        if self.sent.contains_key(&key) {
             return;
         }
         let user = match self.user_repo.find_by_id(event.user_id).await {
@@ -161,7 +165,7 @@ impl MailWorker {
             return;
         };
         // 仅允许一个纯邮箱地址；不接受显示名、地址列表或邮件头。
-        let Ok(address) = recipient.parse::<lettre::Address>() else {
+        let Ok(_address) = recipient.parse::<lettre::Address>() else {
             warn!(user_id = event.user_id, "风险邮件跳过：邮箱格式无效");
             return;
         };
@@ -170,42 +174,111 @@ impl MailWorker {
             .as_deref()
             .filter(|name| !name.trim().is_empty())
             .unwrap_or(&user.username);
-        let Some((subject, body)) = risk_message(event.risk_level, user.id, display_name) else {
+        let notification = RiskMailNotification {
+            id: uuid::Uuid::new_v4().to_string(),
+            user_id: user.id,
+            conversation_id: event.conversation_id,
+            recipient: recipient.into(),
+            display_name: display_name.chars().take(80).collect(),
+            risk_level: event.risk_level,
+            attempts: 0,
+            created_at: chrono::Utc::now(),
+            risk_audit_id: None,
+            is_test: false,
+        };
+        if self.repo.enqueue(&notification).await.is_err() {
+            warn!(user_id = event.user_id, "风险邮件入库失败");
+            return;
+        }
+        self.process_due().await;
+    }
+
+    async fn process_due(&mut self) {
+        let notifications = match self.repo.due().await {
+            Ok(records) => records,
+            Err(_) => {
+                warn!("风险邮件待发送记录读取失败");
+                return;
+            }
+        };
+        for n in notifications {
+            // A changed/deleted guardian contact must not receive stale scheduled mail.
+            let user = match self.user_repo.find_by_id(n.user_id).await {
+                Ok(Some(user)) => user,
+                Ok(None) => {
+                    let _ = self.repo.cancel(&n.id).await;
+                    continue;
+                }
+                Err(_) => {
+                    warn!(notification_id=%n.id,"风险邮件用户读取失败");
+                    continue;
+                }
+            };
+            if !n.is_test && user.email.as_deref().map(str::trim) != Some(n.recipient.as_str()) {
+                let _ = self.repo.cancel(&n.id).await;
+                continue;
+            }
+            self.send_notification(&n).await;
+        }
+    }
+
+    async fn send_notification(&self, n: &RiskMailNotification) {
+        let Some((subject, mut body)) = risk_message(n.risk_level, n.user_id, &n.display_name)
+        else {
             return;
         };
+        let Ok(address) = n.recipient.parse::<lettre::Address>() else {
+            let _ = self.repo.cancel(&n.id).await;
+            return;
+        };
+        let url = match self.confirmation.confirmation_url(&n.id, n.created_at) {
+            Ok(url) => url,
+            Err(_) => {
+                warn!(notification_id=%n.id,"风险邮件确认链接生成失败");
+                return;
+            }
+        };
+        if n.is_test {
+            body = format!(
+                "【功能验证邮件：使用数据库中的历史真实风险记录，非新增风险事件。风险审计编号：{}】\n\n{body}",
+                n.risk_audit_id.map(|id| id.to_string()).unwrap_or_default()
+            );
+        }
+        body.push_str(&format!("\n\n本次为第 {} 次提醒（累计最多 3 次）。请打开以下链接，并点击页面上的“确认收到”：\n{url}\n\n确认后将停止本条提醒的后续补发。未确认时，每隔 10 分钟补发一次；直接回复邮件不会停止补发。链接有效期为 7 天。",n.attempts+1));
         let message = match Message::builder()
             .from(self.from.clone())
             .to(Mailbox::new(None, address))
             .subject(subject)
             .header(ContentType::TEXT_PLAIN)
-            .body(body.to_string())
+            .body(body)
         {
             Ok(message) => message,
             Err(_) => {
-                warn!(user_id = event.user_id, "风险邮件失败：无法构建邮件");
+                warn!(notification_id=%n.id, "风险邮件失败：无法构建邮件");
                 return;
             }
         };
-        for attempt in 1..=3 {
-            if matches!(
-                tokio::time::timeout(self.timeout, self.sender.send(message.clone())).await,
-                Ok(Ok(()))
-            ) {
-                self.sent.insert(key, Instant::now());
-                info!(user_id = event.user_id, conversation_id = ?event.conversation_id,
-                    risk_level = ?event.risk_level, "风险提醒邮件已提交 SMTP 服务");
+        // Reserve before SMTP: concurrent workers/restarts cannot reset or exceed the limit.
+        match self.repo.claim(&n.id).await {
+            Ok(true) => {}
+            Ok(false) => return,
+            Err(_) => {
+                warn!(notification_id=%n.id,"风险邮件发送次数预留失败");
                 return;
             }
-            warn!(user_id = event.user_id, risk_level = ?event.risk_level, attempt,
-                "风险提醒邮件发送失败或超时");
-            if attempt < 3 {
-                tokio::time::sleep(Duration::from_secs(attempt)).await;
-            }
         }
-        warn!(
-            user_id = event.user_id,
-            "风险提醒邮件发送失败：已用尽三次尝试"
+        let success = matches!(
+            tokio::time::timeout(self.timeout, self.sender.send(message)).await,
+            Ok(Ok(()))
         );
+        if self.repo.sent(&n.id, success).await.is_err() {
+            warn!(notification_id=%n.id,"风险邮件投递结果保存失败");
+        }
+        if success {
+            info!(notification_id=%n.id,user_id=n.user_id,attempt=n.attempts+1,"风险提醒邮件已提交 SMTP 服务");
+        } else {
+            warn!(notification_id=%n.id,attempt=n.attempts+1,"风险邮件失败或超时；按十分钟间隔处理，累计最多三次");
+        }
     }
 }
 
@@ -270,8 +343,92 @@ mod tests {
         let (_, body) = risk_message(RiskLevel::High, 7, "小明\r\n附加内容").unwrap();
         assert!(body.contains("被监护人：小明  附加内容（用户ID：7）"));
     }
+    use crate::shared::error::AppError;
     use sea_orm::{DbBackend, MockDatabase, Value};
     use std::{collections::BTreeMap, sync::Mutex};
+
+    #[derive(Default)]
+    struct MemoryRepo {
+        state: Mutex<MemoryState>,
+    }
+    #[derive(Default)]
+    struct MemoryState {
+        now: i64,
+        records: Vec<(RiskMailNotification, i64, bool)>,
+    }
+    impl MemoryRepo {
+        fn advance(&self, seconds: i64) {
+            self.state.lock().unwrap().now += seconds;
+        }
+        fn count(&self) -> u8 {
+            self.state.lock().unwrap().records[0].0.attempts
+        }
+    }
+    #[async_trait]
+    impl RiskMailRepoT for MemoryRepo {
+        async fn enqueue(&self, n: &RiskMailNotification) -> Result<bool, AppError> {
+            let mut state = self.state.lock().unwrap();
+            if state.records.iter().any(|(r, _, closed)| {
+                !closed
+                    && r.user_id == n.user_id
+                    && r.risk_level == n.risk_level
+                    && r.recipient == n.recipient
+            }) {
+                return Ok(false);
+            }
+            state
+                .records
+                .push((n.clone(), n.created_at.timestamp(), false));
+            Ok(true)
+        }
+        async fn due(&self) -> Result<Vec<RiskMailNotification>, AppError> {
+            let state = self.state.lock().unwrap();
+            Ok(state
+                .records
+                .iter()
+                .filter(|(r, next, closed)| !closed && r.attempts < 3 && *next <= state.now)
+                .map(|(r, _, _)| r.clone())
+                .collect())
+        }
+        async fn claim(&self, id: &str) -> Result<bool, AppError> {
+            let mut state = self.state.lock().unwrap();
+            let now = state.now;
+            let Some((r, next, closed)) = state.records.iter_mut().find(|(r, _, _)| r.id == id)
+            else {
+                return Ok(false);
+            };
+            if *closed || r.attempts >= 3 || *next > now {
+                return Ok(false);
+            }
+            r.attempts += 1;
+            *next = now + 600;
+            Ok(true)
+        }
+        async fn sent(&self, _: &str, _: bool) -> Result<(), AppError> {
+            Ok(())
+        }
+        async fn cancel(&self, id: &str) -> Result<(), AppError> {
+            self.acknowledge(id).await.map(|_| ())
+        }
+        async fn acknowledge(&self, id: &str) -> Result<bool, AppError> {
+            let mut state = self.state.lock().unwrap();
+            let Some((_, _, closed)) = state.records.iter_mut().find(|(r, _, _)| r.id == id) else {
+                return Ok(false);
+            };
+            *closed = true;
+            Ok(true)
+        }
+    }
+    struct TestLinks;
+    impl RiskMailLinkT for TestLinks {
+        fn confirmation_url(
+            &self,
+            id: &str,
+            _: chrono::DateTime<chrono::Utc>,
+        ) -> Result<String, AppError> {
+            Ok(format!("https://example.test/mail/confirm#{id}"))
+        }
+    }
 
     #[derive(Default)]
     struct FakeSender {
@@ -293,6 +450,13 @@ mod tests {
     }
 
     fn worker(email: Option<&str>, sender: Arc<FakeSender>) -> MailWorker {
+        scheduled_worker(email, sender).0
+    }
+
+    fn scheduled_worker(
+        email: Option<&str>,
+        sender: Arc<FakeSender>,
+    ) -> (MailWorker, Arc<MemoryRepo>) {
         let now = chrono::Utc::now().naive_utc();
         let row: BTreeMap<&str, Value> = [
             ("id", 7_u64.into()),
@@ -314,16 +478,21 @@ mod tests {
         .into_iter()
         .collect();
         let db = MockDatabase::new(DbBackend::MySql)
-            .append_query_results((0..10).map(|_| vec![row.clone()]))
+            .append_query_results((0..100).map(|_| vec![row.clone()]))
             .into_connection();
-        MailWorker {
-            user_repo: Arc::new(UserRepo::new(db)),
-            sender,
-            from: "sender@example.com".parse().unwrap(),
-            timeout: Duration::from_secs(1),
-            interval: Duration::from_secs(300),
-            sent: HashMap::new(),
-        }
+        let repo = Arc::new(MemoryRepo::default());
+        repo.state.lock().unwrap().now = chrono::Utc::now().timestamp();
+        (
+            MailWorker {
+                user_repo: Arc::new(UserRepo::new(db)),
+                sender,
+                from: "sender@example.com".parse().unwrap(),
+                timeout: Duration::from_secs(1),
+                repo: repo.clone(),
+                confirmation: Arc::new(TestLinks),
+            },
+            repo,
+        )
     }
 
     fn event(level: RiskLevel) -> RiskDetectedTask {
@@ -358,18 +527,27 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn risk_mail_deduplicates_success_but_allows_escalation_and_expiry() {
+    async fn risk_mail_waits_ten_minutes_stops_at_three_and_allows_escalation() {
         let sender = Arc::new(FakeSender::default());
-        let mut worker = worker(Some("owner@example.com"), sender.clone());
+        let (mut worker, repo) = scheduled_worker(Some("owner@example.com"), sender.clone());
         worker.deliver(&event(RiskLevel::Medium)).await;
         worker.deliver(&event(RiskLevel::Medium)).await;
         worker.deliver(&event(RiskLevel::High)).await;
         assert_eq!(sender.messages.lock().unwrap().len(), 2);
-        for time in worker.sent.values_mut() {
-            *time = Instant::now() - Duration::from_secs(301);
-        }
+        repo.advance(599);
+        worker.process_due().await;
+        assert_eq!(sender.messages.lock().unwrap().len(), 2);
+        repo.advance(1);
+        worker.process_due().await;
+        assert_eq!(sender.messages.lock().unwrap().len(), 4);
+        repo.advance(600);
+        worker.process_due().await;
+        assert_eq!(sender.messages.lock().unwrap().len(), 6);
+        repo.advance(6000);
+        worker.process_due().await;
         worker.deliver(&event(RiskLevel::Medium)).await;
-        assert_eq!(sender.messages.lock().unwrap().len(), 3);
+        assert_eq!(sender.messages.lock().unwrap().len(), 6);
+        assert_eq!(repo.count(), 3);
     }
 
     #[tokio::test]
@@ -390,14 +568,35 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn risk_mail_retries_and_does_not_suppress_events_after_final_failure() {
+    async fn risk_mail_failed_attempts_are_spaced_and_capped() {
         let sender = Arc::new(FakeSender::default());
         *sender.failures.lock().unwrap() = 3;
-        let mut worker = worker(Some("owner@example.com"), sender.clone());
+        let (mut worker, repo) = scheduled_worker(Some("owner@example.com"), sender.clone());
         worker.deliver(&event(RiskLevel::High)).await;
-        assert!(worker.sent.is_empty());
+        assert_eq!(repo.count(), 1);
         assert!(sender.messages.lock().unwrap().is_empty());
-        worker.deliver(&event(RiskLevel::High)).await;
+        repo.advance(600);
+        worker.process_due().await;
+        repo.advance(600);
+        worker.process_due().await;
+        repo.advance(600);
+        worker.process_due().await;
+        assert_eq!(repo.count(), 3);
+        assert!(sender.messages.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn risk_mail_confirmation_stops_future_reminders_after_worker_restart() {
+        let sender = Arc::new(FakeSender::default());
+        let (mut first, repo) = scheduled_worker(Some("owner@example.com"), sender.clone());
+        first.deliver(&event(RiskLevel::High)).await;
+        let id = repo.state.lock().unwrap().records[0].0.id.clone();
+        assert!(repo.acknowledge(&id).await.unwrap());
+        assert!(repo.acknowledge(&id).await.unwrap());
+        let mut restarted = worker(Some("owner@example.com"), sender.clone());
+        restarted.repo = repo.clone();
+        repo.advance(1200);
+        restarted.process_due().await;
         assert_eq!(sender.messages.lock().unwrap().len(), 1);
     }
 
@@ -428,6 +627,7 @@ mod tests {
         config.host = "smtp.test.invalid".into();
         config.username = "sender".into();
         config.password = "test-secret-password".into();
+        config.public_base_url = "https://example.test".into();
         assert!(config.validate().is_ok());
         assert!(!format!("{config:?}").contains("test-secret-password"));
         config.tls_mode = "none".into();

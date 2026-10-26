@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use crate::app::risk::risk_mail_confirmation_service::RiskMailConfirmationService;
+use crate::domain::risk::risk_mail_notification::{RiskMailLinkT, RiskMailRepoT};
 use crate::domain::tasks::task_handler::TaskHandler;
 use crate::domain::tasks::task_publisher::TaskPublisher;
 use crate::domain::user::user_repo::UserRepoT;
@@ -10,6 +12,7 @@ use crate::infra::tasks::in_memory_task_flow::{
 use crate::infra::tasks::logging_handler::LoggingHandler;
 use crate::infra::tasks::rate_limit_handler::{RateLimitConfig, RateLimitHandler};
 use crate::infra::tasks::risk_mail_handler::RiskMailHandler;
+use crate::infra::tasks::risk_mail_store::RiskMailStore;
 use crate::shared::config::MailConfig;
 
 pub struct BackgroundTasks {
@@ -46,6 +49,7 @@ impl Default for BackgroundTasks {
 pub struct TaskContext {
     pub task_publisher: Arc<dyn TaskPublisher>,
     pub background: BackgroundTasks,
+    pub mail_confirmation: Option<Arc<RiskMailConfirmationService>>,
     task_worker: Option<TaskWorker>,
     alert_handler: Arc<AlertHandler>,
     rate_limit_handler: Arc<RateLimitHandler>,
@@ -53,7 +57,12 @@ pub struct TaskContext {
 
 impl TaskContext {
     /// 构造任务系统前半段：告警、限流、通道、Publisher。
-    pub fn new(user_repo: Arc<dyn UserRepoT>, mail: &MailConfig) -> Result<Self, std::io::Error> {
+    pub async fn new(
+        user_repo: Arc<dyn UserRepoT>,
+        mail: &MailConfig,
+        db: &sea_orm::DatabaseConnection,
+        confirmation_secret: &str,
+    ) -> Result<Self, std::io::Error> {
         let mut background = BackgroundTasks::new();
 
         let alert_handler = Arc::new(AlertHandler::new(AlertConfig::default()));
@@ -62,8 +71,23 @@ impl TaskContext {
             Arc::clone(&user_repo),
         ));
 
+        let mut mail_confirmation = None;
         let mail_handler = if mail.enabled {
-            let (handler, handle) = RiskMailHandler::start(mail, user_repo)
+            mail.validate().map_err(std::io::Error::other)?;
+            let store = Arc::new(RiskMailStore::new(db.clone()));
+            store
+                .ensure_schema()
+                .await
+                .map_err(|_| std::io::Error::other("risk mail schema initialization failed"))?;
+            let repo: Arc<dyn RiskMailRepoT> = store;
+            let confirmation = Arc::new(RiskMailConfirmationService::new(
+                Arc::clone(&repo),
+                confirmation_secret.into(),
+                mail.public_base_url.clone(),
+            ));
+            mail_confirmation = Some(Arc::clone(&confirmation));
+            let links: Arc<dyn RiskMailLinkT> = confirmation;
+            let (handler, handle) = RiskMailHandler::start(mail, user_repo, repo, links)
                 .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidInput, error))?;
             background.spawn(handle);
             Some(handler)
@@ -109,6 +133,7 @@ impl TaskContext {
         Ok(Self {
             task_publisher,
             background,
+            mail_confirmation,
             task_worker: Some(task_worker),
             alert_handler,
             rate_limit_handler,

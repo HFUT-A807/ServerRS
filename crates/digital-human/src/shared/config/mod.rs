@@ -501,6 +501,7 @@ impl AppConfig {
             ("MAIL_PASSWORD", &mut self.mail.password),
             ("MAIL_FROM_ADDRESS", &mut self.mail.from_address),
             ("MAIL_TLS_MODE", &mut self.mail.tls_mode),
+            ("MAIL_PUBLIC_BASE_URL", &mut self.mail.public_base_url),
         ] {
             if let Ok(value) = std::env::var(name) {
                 *field = value;
