@@ -1,0 +1,9 @@
+{
+  "audit_id": "99",
+  "user_id": "1",
+  "conversation_id": "37",
+  "status": "completed",
+  "risk_level": "medium",
+  "confidence": "0.500",
+  "checked_at": "2026-10-12 13:33:30.679630"
+}

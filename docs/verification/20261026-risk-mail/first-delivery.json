@@ -1,0 +1,9 @@
+{
+  "notification_id": "e7a39e08-b602-4856-83dd-2e8f98c44b6f",
+  "status": "pending",
+  "attempts": "1",
+  "successful_sends": "1",
+  "last_sent_at": "2026-10-26 08:19:17.289737",
+  "next_send_at": "2026-10-26 08:29:17.289737",
+  "confirmed_at": "NULL"
+}

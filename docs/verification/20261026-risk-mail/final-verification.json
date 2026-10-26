@@ -1,0 +1,11 @@
+{
+  "running_revision": "eb27db199a07278e9fa641c47fdc970a166ff307",
+  "healthy_after_restart": true,
+  "public_health_http": 200,
+  "public_confirmation_http": 200,
+  "confirmation_persisted_after_restart": true,
+  "send_attempts": 1,
+  "successful_sends": 1,
+  "claim_after_confirmation": 0,
+  "validation_notification_id": "e7a39e08-b602-4856-83dd-2e8f98c44b6f"
+}

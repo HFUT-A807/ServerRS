@@ -1,0 +1,10 @@
+{
+  "fixture_id": "f84dd66c-d95e-490c-aa66-224e914566b7",
+  "get_did_not_confirm": true,
+  "valid_and_repeated_confirmation_http": [
+    200,
+    200
+  ],
+  "persisted_result": "confirmed\t0\t0\t1",
+  "emails_sent_for_fixture": 0
+}
