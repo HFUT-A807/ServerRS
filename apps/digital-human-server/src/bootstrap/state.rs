@@ -162,6 +162,7 @@ pub fn build_state(services: &ServiceGraph) -> AppState {
     AppState {
         auth: AuthState {
             auth: Arc::clone(&services.auth),
+            login_crypto: Arc::new(Default::default()),
         },
         user: UserState {
             user: Arc::clone(&services.user),

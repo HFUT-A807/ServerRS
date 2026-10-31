@@ -30,7 +30,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(username: string, password: string) {
     loading.value = true
     try {
-      const result = await authClient.auth.login({ username, password })
+      const result = await authClient.auth.loginEncrypted({ username, password })
       if (result.user.role !== 'ADMIN' && result.user.role !== 'SUPER_ADMIN') {
         await tokenStore.clear()
         throw new Error('该账号没有管理后台访问权限')

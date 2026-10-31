@@ -9,6 +9,7 @@ use crate::api::dto::auth_dto::{
     LoginRequest, LogoutRequest, RefreshTokenRequest, RegisterRequest,
 };
 use crate::api::error::ApiError as AppError;
+use crate::app::auth::auth_service::REGISTRATION_PASSWORD_REQUIREMENTS;
 use crate::app::auth::auth_service::{AuthTokenPair, AuthenticatedUser, LoginInput};
 
 // ── Response DTOs ────────────────────────────────────────────────────────────
@@ -47,6 +48,15 @@ pub struct HealthResponse {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+fn registration_validation_error(error: validator::ValidationErrors) -> AppError {
+    // Validator attaches rejected field values. Never return or log a rejected password.
+    if error.field_errors().contains_key("password") {
+        AppError::Validation(REGISTRATION_PASSWORD_REQUIREMENTS.into())
+    } else {
+        AppError::validation(error)
+    }
+}
+
 fn pair_to_login(pair: AuthTokenPair, username: String) -> LoginResponse {
     LoginResponse {
         user: UserInfo {
@@ -63,6 +73,24 @@ fn pair_to_login(pair: AuthTokenPair, username: String) -> LoginResponse {
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
+pub async fn login_challenge(
+    State(state): State<AuthState>,
+) -> Result<impl IntoResponse, AppError> {
+    Ok((
+        [(axum::http::header::CACHE_CONTROL, "no-store")],
+        Json(state.login_crypto.challenge()?),
+    ))
+}
+
+pub async fn encrypted_login(
+    State(state): State<AuthState>,
+    Json(envelope): Json<super::login_crypto::EncryptedLogin>,
+) -> Result<impl IntoResponse, AppError> {
+    let payload = state.login_crypto.decrypt(envelope)?;
+    let response = login(State(state), Json(payload)).await?;
+    Ok(([(axum::http::header::CACHE_CONTROL, "no-store")], response))
+}
+
 pub async fn health() -> Json<HealthResponse> {
     Json(HealthResponse {
         status: "up",
@@ -74,7 +102,7 @@ pub async fn register(
     State(state): State<AuthState>,
     Json(payload): Json<RegisterRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    payload.validate().map_err(AppError::validation)?;
+    payload.validate().map_err(registration_validation_error)?;
     let username = payload.username.clone();
     let pair = state
         .auth
@@ -131,4 +159,26 @@ pub async fn me(Extension(user): Extension<AuthenticatedUser>) -> Json<UserInfo>
         username: user.username,
         role: user.role.to_string(),
     })
+}
+
+#[cfg(test)]
+mod registration_tests {
+    use super::*;
+
+    #[test]
+    fn registration_validation_does_not_disclose_the_rejected_password() {
+        let request = RegisterRequest {
+            username: "new_user".into(),
+            password: "privateweakpassword".into(),
+            device_id: None,
+        };
+        let error = registration_validation_error(request.validate().unwrap_err());
+        assert!(matches!(error, AppError::Validation(_)));
+        assert!(
+            error
+                .to_string()
+                .contains(REGISTRATION_PASSWORD_REQUIREMENTS)
+        );
+        assert!(!error.to_string().contains(&request.password));
+    }
 }

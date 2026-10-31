@@ -44,6 +44,7 @@ pub struct AppState {
 #[derive(Clone)]
 pub struct AuthState {
     pub auth: Arc<AuthService>,
+    pub login_crypto: Arc<super::handlers::login_crypto::LoginCrypto>,
 }
 
 #[derive(Clone)]

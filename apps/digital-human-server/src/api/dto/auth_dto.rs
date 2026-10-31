@@ -1,6 +1,13 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
+use crate::app::auth::auth_service::validate_registration_password;
+
+fn validate_registration_password_field(password: &str) -> Result<(), validator::ValidationError> {
+    validate_registration_password(password)
+        .map_err(|_| validator::ValidationError::new("password_policy"))
+}
+
 #[derive(Debug, Deserialize, Validate)]
 pub struct LoginRequest {
     #[validate(length(min = 3, max = 32))]
@@ -24,7 +31,7 @@ pub struct LoginResponse {
 pub struct RegisterRequest {
     #[validate(length(min = 3, max = 32), regex(path = "*USERNAME_RE"))]
     pub username: String,
-    #[validate(length(min = 8, max = 128))]
+    #[validate(custom(function = "validate_registration_password_field"))]
     pub password: String,
     #[validate(length(max = 64))]
     #[serde(default)]
@@ -100,5 +107,27 @@ mod tests {
         };
 
         assert!(request.validate().is_err());
+    }
+
+    #[test]
+    fn registration_rejects_missing_password_character_classes() {
+        for password in ["abcdefgh!", "ABCDEFGH!", "Abcdefgh", "Abcdefg "] {
+            let request = RegisterRequest {
+                username: "new_user".into(),
+                password: password.into(),
+                device_id: None,
+            };
+            assert!(request.validate().is_err());
+        }
+    }
+
+    #[test]
+    fn registration_accepts_an_eight_character_password_without_digits() {
+        let request = RegisterRequest {
+            username: "new_user".into(),
+            password: "Abcdefg!".into(),
+            device_id: None,
+        };
+        assert!(request.validate().is_ok());
     }
 }

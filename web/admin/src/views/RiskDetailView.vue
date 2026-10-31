@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { AdminRiskConversationDetail } from '@serverrs/sdk'
-import { ArrowLeft } from '@lucide/vue'
-import { computed, onMounted, ref } from 'vue'
+import type { AdminRiskConversationDetail, AdminUser } from '@serverrs/sdk'
+import { ArrowLeft, Mail, Phone, Users, X } from '@lucide/vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import RiskAuditCard from '@/components/RiskAuditCard.vue'
 import { api } from '@/lib/sdk'
@@ -13,6 +13,17 @@ const id = computed(() => Number(route.params.id))
 const detail = ref<AdminRiskConversationDetail | null>(null)
 const loading = ref(false)
 const error = ref('')
+const guardian = ref<AdminUser | null>(null)
+const contactOpen = ref(false)
+const contactLoading = ref(false)
+const contactError = ref('')
+const guardianEmail = computed(() => guardian.value?.email?.trim() || '')
+const guardianPhone = computed(() => guardian.value?.phone?.trim() || '')
+const emailHref = computed(() => `mailto:${encodeURIComponent(guardianEmail.value)}`)
+const phoneHref = computed(
+  () => `tel:${encodeURIComponent(guardianPhone.value.replace(/[\s()-]/g, ''))}`,
+)
+let loadVersion = 0
 const timeline = computed(() =>
   detail.value ? auditRows(detail.value) : { rows: [], unmatched: [] },
 )
@@ -24,21 +35,45 @@ const roles: Record<string, string> = {
 }
 
 async function load() {
+  const version = ++loadVersion
   loading.value = true
   error.value = ''
+  detail.value = null
+  guardian.value = null
+  contactError.value = ''
+  contactLoading.value = false
   try {
-    detail.value = await api.admin.riskConversation(id.value)
-  } catch (cause) {
-    error.value = errorMessage(cause)
-  } finally {
+    const result = await api.admin.riskConversation(id.value)
+    if (version !== loadVersion) return
+    detail.value = result
     loading.value = false
+    contactLoading.value = true
+    try {
+      const user = await api.admin.user(result.conversation.user_id)
+      if (version === loadVersion) guardian.value = user
+    } catch (cause) {
+      if (version === loadVersion) contactError.value = errorMessage(cause)
+    } finally {
+      if (version === loadVersion) contactLoading.value = false
+    }
+  } catch (cause) {
+    if (version === loadVersion) error.value = errorMessage(cause)
+  } finally {
+    if (version === loadVersion) loading.value = false
   }
 }
-onMounted(load)
+watch(
+  id,
+  () => {
+    contactOpen.value = false
+    void load()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
-  <div>
+  <div class="risk-detail">
     <header class="page-heading">
       <div>
         <RouterLink class="back-link" to="/risks"><ArrowLeft :size="15" />返回风险会话</RouterLink>
@@ -47,6 +82,64 @@ onMounted(load)
       </div>
       <button class="button" :disabled="loading" @click="load">刷新</button>
     </header>
+    <Teleport to="body">
+      <div v-if="detail" class="guardian-floating" @keydown.esc="contactOpen = false">
+        <section
+          v-show="contactOpen"
+          id="guardian-contact"
+          class="card guardian-contact"
+          aria-labelledby="guardian-contact-title"
+        >
+          <div class="contact-heading">
+            <h2 id="guardian-contact-title">联系监护人</h2>
+            <button class="icon-button" aria-label="关闭联系方式" @click="contactOpen = false">
+              <X :size="18" />
+            </button>
+          </div>
+          <p>
+            用户：{{
+              guardian?.nickname || guardian?.username || `#${detail.conversation.user_id}`
+            }}
+            · 使用该用户资料中登记的监护人邮箱和电话。
+          </p>
+          <p v-if="contactLoading" role="status">正在加载联系方式...</p>
+          <div v-else-if="contactError" class="contact-error" role="alert">
+            <p>联系方式加载失败：{{ contactError }}</p>
+            <button class="button small" :disabled="loading" @click="load">重试</button>
+          </div>
+          <template v-else>
+            <div class="contact-methods">
+              <div class="contact-method">
+                <span>监护人邮箱</span>
+                <a v-if="guardianEmail" class="button" :href="emailHref"
+                  ><Mail :size="16" />{{ guardianEmail }}</a
+                >
+                <p v-else>未填写邮箱</p>
+              </div>
+              <div class="contact-method">
+                <span>监护人电话</span>
+                <a v-if="guardianPhone" class="button" :href="phoneHref"
+                  ><Phone :size="16" />{{ guardianPhone }}</a
+                >
+                <p v-else>未填写电话</p>
+              </div>
+            </div>
+            <p v-if="!guardianEmail && !guardianPhone">
+              该用户尚未登记监护人联系方式，请先补充用户资料。
+            </p>
+            <p v-else>点击邮箱打开邮件应用，点击电话打开拨号应用。</p>
+          </template>
+        </section>
+        <button
+          class="button primary guardian-trigger"
+          :aria-expanded="contactOpen"
+          aria-controls="guardian-contact"
+          @click="contactOpen = !contactOpen"
+        >
+          <Users :size="18" />联系监护人
+        </button>
+      </div>
+    </Teleport>
     <div v-if="loading" class="card loading-state">正在加载会话详情...</div>
     <div v-else-if="error && !detail" class="card error-state">{{ error }}</div>
     <template v-else-if="detail">
@@ -95,6 +188,69 @@ onMounted(load)
 </template>
 
 <style scoped>
+.risk-detail {
+  padding-bottom: 88px;
+}
+.guardian-floating {
+  position: fixed;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  z-index: 40;
+  display: grid;
+  justify-items: end;
+  gap: 12px;
+  max-width: calc(100vw - 32px);
+}
+.guardian-trigger {
+  min-height: 46px;
+  border-radius: 24px;
+  box-shadow: var(--modal-shadow);
+}
+.guardian-contact {
+  width: min(400px, calc(100vw - 32px));
+  max-height: calc(100dvh - 120px);
+  overflow-y: auto;
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  box-shadow: var(--modal-shadow);
+}
+.contact-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.guardian-contact h2 {
+  margin-bottom: 6px;
+  font-size: 16px;
+}
+.guardian-contact p,
+.contact-method > span {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.contact-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 32px;
+}
+.contact-method {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.contact-method .button {
+  justify-content: flex-start;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.contact-error {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
 .back-link {
   display: inline-flex;
   align-items: center;

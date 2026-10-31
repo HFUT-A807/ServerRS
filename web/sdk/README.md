@@ -20,6 +20,11 @@ pnpm add D:\WorkSpace\Temp\ServerRS\web\sdk
 
 ## 快速开始
 
+注册密码须为 8–128 个字符，同时包含 ASCII 大写字母（A–Z）、小写字母（a–z）
+和特殊字符（ASCII 标点，例如 `!@#$%_`）；空格和汉字不计作特殊字符。
+数字可选，例如 `Abcdefg!` 满足规则。SDK 会提前提示，后端仍强制校验。
+此规则仅用于新用户注册，不影响历史账号的密码登录。
+
 ```ts
 import { createLocalStorageTokenStore, createUserClient, createAdminClient } from '@serverrs/sdk'
 

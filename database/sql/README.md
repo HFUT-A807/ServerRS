@@ -8,7 +8,9 @@
 
 `mock.sql` 仅用于开发样例数据，不用于生产升级。量表种子数据由 `seed_psychology_depression.sql` 提供，按环境需要单独初始化。
 
-两份脚本的量表定义已统一为 PHQ-9（9 题）、SDS（20 题）、CES-D（20 题）。执行 `python database/scripts/check_depression_scales.py` 可核对题号、选项分值、反向题、评分区间及模拟评估的完整性。已有库不要直接用种子脚本覆盖与历史记录关联的量表 ID。
+两份脚本的量表定义已统一为 PHQ-9（9 题）、SDS（20 题）、CES-D（20 题）、GDS-15（15 题）。执行 `python database/scripts/check_depression_scales.py` 可核对题号、选项分值、反向题、评分区间及模拟评估的完整性。已有库不要直接用种子脚本覆盖与历史记录关联的量表 ID。
+
+新增 GDS-15 使用独立迁移 `migrations/20261025_add_gds15.sql`，仅在该名称不存在时插入 ID 4，不更新已有量表。执行前备份并确认 ID 4 未被其他量表占用。题目和计分采用斯坦福大学收录的 [NARI 标准中文版](https://web.stanford.edu/~yesavage/Australian%20Chinese.pdf)，不采用同文件中的 Mui 改编版。选项固定按“是／否”排列，第 1、5、7、11、13 题分别计 0／1 分，其余题计 1／0 分；服务直接累加选项分值，无需再次反转。筛查区间遵循该版本：0–4、5–9、10–15；等级提示症状，不能代替临床诊断。
 
 2026-10-08 已核验 HP 在线量表完整，仅通过 `migrations/20261008_sds_scoring_description.sql` 明确 SDS 的四舍五入说明。该迁移可重复执行，不改题目、分值或历史评估。详见 [量表同步核验记录](../../docs/depression-scale-sync-20261008.md)。
 

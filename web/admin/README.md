@@ -17,6 +17,26 @@ pnpm dev
 管理员账号必须具有 `ADMIN` 或 `SUPER_ADMIN` 角色。生产部署时可通过
 `VITE_API_BASE_URL` 指定完整服务端地址；同域部署则保持为空。
 
+## 登录敏感信息加密
+
+管理后台使用 `auth.loginEncrypted()`：先通过 `POST /api/v1/auth/login/challenge`
+取得一次性 P-256 公钥，再以 ECDH + HKDF-SHA256 派生 AES-256-GCM 密钥，
+将用户名、密码及设备标识整体加密后提交到 `POST /api/v1/auth/login/encrypted`。
+每次登录重新获取公钥，挑战有效期 120 秒且只能使用一次；加密失败不会回退为明文。
+登录尝试结束后清空页面中的密码。
+
+HTTPS 页面优先使用浏览器 Web Crypto；普通 HTTP 页面使用随构建打包的
+Noble 密码库实现同样的加密协议，满足现有 IP 地址环境的登录密文传输验证。
+两种方式均使用浏览器安全随机数，不支持时拒绝登录，不回退为明文。
+生产环境仍建议通过 HTTPS 访问页面和 API，确保公钥来源可信并保护返回的登录令牌；
+仅加密登录正文不能代替 HTTPS 的身份认证和完整会话保护。
+这两个接口需要转发到同一后端实例；多实例部署需配置会话粘性。
+更新时需同时部署前端和后端。原 `/api/v1/auth/login` 保留供现有 SDK/CLI 调用，
+其调用方仍需使用 HTTPS。
+
+加密协议验证：先构建 SDK，再运行 `node web/sdk/scripts/login-crypto.test.mjs`；
+后端验证：`cargo test -p digital-human-server --lib login_crypto --no-default-features`。
+
 ## 接口配置与验证
 
 开发代理和 `.env.example` 均使用后端默认端口 8080。可将 `.env.example`

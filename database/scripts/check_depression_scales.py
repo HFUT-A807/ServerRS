@@ -69,9 +69,10 @@ def read_sql_scales(path):
 
 def validate(rows):
     expected = {"PHQ-9": (9, 0, 27, set()), "SDS": (20, 20, 80, {2, 5, 6, 11, 12, 14, 16, 17, 18, 20}),
-                "CES-D": (20, 0, 60, {4, 8, 12, 16})}
-    assert len(rows) == 3 and {r["scale_name"] for r in rows} == set(expected)
-    assert len({r["scale_id"] for r in rows}) == 3
+                "CES-D": (20, 0, 60, {4, 8, 12, 16}),
+                "GDS-15": (15, 0, 15, {1, 5, 7, 11, 13})}
+    assert len(rows) == len(expected) and {r["scale_name"] for r in rows} == set(expected)
+    assert len({r["scale_id"] for r in rows}) == len(expected)
     for row in rows:
         count, low, high, reversed_ids = expected[row["scale_name"]]
         questions = row["questions"]
@@ -79,11 +80,16 @@ def validate(rows):
         assert [q["id"] for q in questions] == list(range(1, count + 1))
         assert {q["id"] for q in questions if q.get("reverse_scored")} == reversed_ids
         option_scores = list(range(1, 5)) if row["scale_name"] == "SDS" else list(range(4))
+        if row["scale_name"] == "GDS-15":
+            option_scores = [1, 0]  # Yes / No; positive items reverse this contribution.
         for q in questions:
             assert q["text"].strip()
             assert all(o["label"].strip() for o in q["options"])
             scores = [o["score"] for o in q["options"]]
             assert scores == (option_scores[::-1] if q["id"] in reversed_ids else option_scores)
+            if row["scale_name"] == "GDS-15":
+                assert [o["label"] for o in q["options"]] == ["是", "否"]
+                assert q["period"] == "过去一周"
         assert sum(min(o["score"] for o in q["options"]) for q in questions) == low == row["min_score"]
         assert sum(max(o["score"] for o in q["options"]) for q in questions) == high == row["max_score"]
         ranges = row["severity_ranges"]
@@ -92,6 +98,8 @@ def validate(rows):
             assert r["level"].strip()
             coverage.extend(range(r["min"], r["max"] + 1))
         assert sorted(coverage) == list(range(low, high + 1)), row["scale_name"]
+        if row["scale_name"] == "GDS-15":
+            assert [(r["min"], r["max"]) for r in ranges] == [(0, 4), (5, 9), (10, 15)]
         if row["scale_name"] == "SDS":
             for raw in range(low, high + 1):
                 # Integer round-half-up of raw * 1.25, consistent with the seed's raw cutoffs.

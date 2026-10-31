@@ -13,7 +13,9 @@ use super::handlers::admin_handler::{
     list_risk_conversations, list_users as admin_list_users, patch_user as admin_patch_user,
     process_risk_detection,
 };
-use super::handlers::auth_handler::{health, login, logout, me, refresh_token, register};
+use super::handlers::auth_handler::{
+    encrypted_login, health, login, login_challenge, logout, me, refresh_token, register,
+};
 use super::handlers::chat_handler::{
     chat_disable_memory, chat_forget, chat_get_checkpoint, chat_history,
     chat_list_pending_approvals, chat_memories, chat_open, chat_persona, chat_persona_rebuild,
@@ -273,6 +275,11 @@ pub fn build_router_with_origins(
         // Auth public endpoints
         .route("/api/v1/auth/register", post(register))
         .route("/api/v1/auth/login", post(login))
+        .route("/api/v1/auth/login/challenge", post(login_challenge))
+        .route(
+            "/api/v1/auth/login/encrypted",
+            post(encrypted_login).layer(DefaultBodyLimit::max(8 * 1024)),
+        )
         .route("/api/v1/auth/refresh", post(refresh_token))
         .route("/api/v1/auth/logout", post(logout))
         // 数字人语音下载使用独立的 HMAC 时效 URL，不复用 QQBot 的静态 /tts 路由。

@@ -21,6 +21,8 @@ async function submit() {
     await router.replace(redirect)
   } catch (cause) {
     error.value = errorMessage(cause)
+  } finally {
+    password.value = ''
   }
 }
 </script>

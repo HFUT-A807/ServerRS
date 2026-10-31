@@ -128,6 +128,24 @@ pub struct AuthService {
     config: AuthConfig,
 }
 
+pub const REGISTRATION_PASSWORD_REQUIREMENTS: &str =
+    "密码须为 8–128 位，且至少包含一个大写字母、一个小写字母和一个特殊字符（如 !@#$%）";
+
+/// Registration policy only: existing accounts keep their current login credentials.
+pub fn validate_registration_password(password: &str) -> Result<(), AppError> {
+    let valid = (8..=128).contains(&password.chars().count())
+        && password.chars().any(|c| c.is_ascii_uppercase())
+        && password.chars().any(|c| c.is_ascii_lowercase())
+        && password.chars().any(|c| c.is_ascii_punctuation());
+    if valid {
+        Ok(())
+    } else {
+        Err(AppError::Validation(
+            REGISTRATION_PASSWORD_REQUIREMENTS.into(),
+        ))
+    }
+}
+
 fn sha256_hex(s: &str) -> String {
     Sha256::digest(s.as_bytes())
         .iter()
@@ -277,6 +295,7 @@ impl AuthService {
         password: String,
         device_id: Option<String>,
     ) -> Result<AuthTokenPair, AppError> {
+        validate_registration_password(&password)?;
         if self.user_repo.find_by_username(&username).await?.is_some() {
             return Err(AppError::Conflict("username already exists".into()));
         }
@@ -415,5 +434,45 @@ impl AuthService {
             username: user.username,
             role: Role::from(user.role),
         })
+    }
+}
+
+#[cfg(test)]
+mod registration_password_tests {
+    use super::*;
+
+    #[test]
+    fn registration_password_requires_length_and_all_three_character_classes() {
+        for password in [
+            "",
+            "Aa!1234",
+            "abcdefgh!",
+            "ABCDEFGH!",
+            "Abcdefgh",
+            "12345678!",
+            "Abcdefg ",
+            "Abcdefg中",
+        ] {
+            let error = validate_registration_password(password).unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                format!("request validation failed: {REGISTRATION_PASSWORD_REQUIREMENTS}")
+            );
+        }
+        assert!(validate_registration_password(&format!("Aa!{}", "x".repeat(126))).is_err());
+    }
+
+    #[test]
+    fn registration_password_accepts_boundaries_and_does_not_require_digits() {
+        for password in [
+            "Abcdefg!",
+            "StrongPass1@",
+            "Abcdefg_",
+            "Abcdefg~",
+            "Abcd中文!?",
+            &format!("Aa!{}", "x".repeat(125)),
+        ] {
+            assert!(validate_registration_password(password).is_ok());
+        }
     }
 }

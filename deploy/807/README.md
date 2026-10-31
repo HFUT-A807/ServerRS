@@ -21,6 +21,26 @@ Ollama 使用主机已有服务，未另建 Ollama 容器。
 - 公网：`http://49.235.180.131:8080/`
 - 健康检查：在上述地址后追加 `/health`。
 
+管理员登录正文在浏览器中以 P-256 ECDH + HKDF-SHA256 + AES-256-GCM
+整体加密，现有 HTTP IP 地址也支持。HTTP 页面使用构建内置的 Noble 密码库，
+不依赖 CDN；每次登录重新生成密钥并获取有效期 120 秒的一次性挑战。
+
+软测时刷新页面，在浏览器开发者工具的 Network 中提交登录，检查
+`POST /api/v1/auth/login/encrypted`：正文应仅包含 `challenge_id`、
+`public_key`、`iv`、`ciphertext`，不含明文用户名、密码或设备标识。
+此前的 `/challenge` 请求只获取公钥，不携带登录凭证。
+这属于登录正文的应用层加密；HTTP 页面、公钥来源及返回令牌仍不具备 HTTPS 保护。
+
+可使用虚构账号执行线上协议验证（不会创建账号或修改业务数据）：
+
+```powershell
+$env:SERVERRS_BASE_URL = 'http://49.235.180.131:8080'
+node web/sdk/scripts/check-encrypted-login.mjs
+```
+
+验证有效密文进入身份认证、重放和篡改被拒绝，以及加密接口拒绝明文正文。
+脚本使用不存在的随机账号，因此有效密文预期返回 401；真实账号的登录仍按原有权限校验。
+
 公网入口由 `public-tunnel` 容器自动建立 SSH 反向转发。
 专用密钥为 `/home/x/.ssh/serverrs_tencent`，主机公钥文件为
 `/home/x/.ssh/serverrs_known_hosts`。容器使用 `public-ssh` 中权限受限的副本，

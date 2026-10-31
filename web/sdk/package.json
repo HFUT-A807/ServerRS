@@ -32,5 +32,10 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@noble/ciphers": "2.4.0",
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0"
   }
 }

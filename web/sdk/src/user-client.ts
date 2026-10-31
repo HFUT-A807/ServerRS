@@ -124,7 +124,34 @@ export function createUserClient(config: ServerRsClientConfig): UserClient {
 export class AuthApi {
   constructor(private readonly http: HttpClient) {}
 
+  async loginEncrypted(payload: LoginRequest): Promise<LoginResponse> {
+    if (!globalThis.crypto?.getRandomValues) {
+      throw new Error('浏览器不支持安全随机数，无法加密登录信息，请更新浏览器')
+    }
+    const { encryptLogin } = await import('./login-crypto.js')
+    const challenge = await this.http.request<import('./login-crypto.js').LoginChallenge>(
+      'POST', '/api/v1/auth/login/challenge', { auth: false },
+    )
+    const response = await this.http.request<LoginResponse>('POST', '/api/v1/auth/login/encrypted', {
+      auth: false,
+      body: await encryptLogin(payload, challenge),
+    })
+    await saveLogin(this.http.tokenStore, response)
+    return response
+  }
+
   async register(payload: RegisterRequest): Promise<LoginResponse> {
+    const password = payload.password
+    const length = Array.from(password).length
+    if (
+      length < 8 || length > 128
+      || !/[A-Z]/.test(password) || !/[a-z]/.test(password)
+      || !/[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]/.test(password)
+    ) {
+      throw new Error(
+        '密码须为 8–128 位，且至少包含一个大写字母、一个小写字母和一个特殊字符（如 !@#$%）',
+      )
+    }
     const response = await this.http.request<LoginResponse>('POST', '/api/v1/auth/register', {
       auth: false,
       body: payload,
